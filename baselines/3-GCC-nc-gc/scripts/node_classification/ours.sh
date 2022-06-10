@@ -1,0 +1,10 @@
+#!/bin/bash
+load_path=$1
+hidden_size=$2
+transfering_mode=$3
+ARGS=${@:4}
+
+for dataset in $ARGS
+do
+    python gcc/tasks/node_classification.py --transferring-mode $transfering_mode --dataset $dataset --hidden-size $hidden_size --model from_numpy --emb-path "$load_path/$dataset.npy"
+done

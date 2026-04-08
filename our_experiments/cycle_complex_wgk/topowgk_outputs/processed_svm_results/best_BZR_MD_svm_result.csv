@@ -1,0 +1,2 @@
+alpha,gk_gamma,niter_tn,niter_hcc,acc,acc_std,f1_score,f1_score_std,roc_auc_score,roc_auc_score_std,run_time,selected_metric
+0.517947,0.002976,3,1,0.6891,0.0665,0.6787,0.0704,0.7163,0.0864,508.0117,acc;f1_score

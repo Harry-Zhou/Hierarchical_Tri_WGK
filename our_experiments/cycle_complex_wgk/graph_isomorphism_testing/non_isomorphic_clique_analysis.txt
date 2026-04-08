@@ -1,0 +1,77 @@
+ANALYSIS OF NON-ISOMORPHIC STRONGLY REGULAR GRAPHS - CLIQUE STRUCTURE
+======================================================================
+
+Source: Loaded from existing data files
+
+Graph 1:
+  Order (n): 85
+  Degree: 20
+  Is strongly regular: True
+  SRG parameters: (n=85, k=20, λ=3, μ=5)
+
+Graph 2:
+  Order (n): 85
+  Degree: 20
+  Is strongly regular: True
+  SRG parameters: (n=85, k=20, λ=3, μ=5)
+
+
+CLIQUE STRUCTURE ANALYSIS:
+======================================================================
+
+1. CLIQUE SIZE DISTRIBUTION:
+   Graph 1: {3: 451, 4: 87, 5: 8}
+   Graph 2: {3: 425, 4: 96, 5: 8}
+
+2. SELECTED CLIQUE FOR VISUALIZATION:
+   Selected clique size: 4
+   Reason: This clique size shows differences between the two graphs
+   Graph 1: 87 cliques of size 4
+   Graph 2: 96 cliques of size 4
+   Difference: 9 cliques
+
+3. DETAILS OF SELECTED CLIQUES:
+   Graph 1:
+     - Number of selected cliques = 87
+     - Nodes in selected cliques = 84
+     - Edges within selected cliques = 451
+   Graph 2:
+     - Number of selected cliques = 96
+     - Nodes in selected cliques = 82
+     - Edges within selected cliques = 484
+
+4. TRIANGLE COUNTS (3-CLIQUES):
+   Graph 1: 850 triangles
+   Graph 2: 850 triangles
+
+VISUALIZATION KEY:
+----------------------------------------------------------------------
+1. Red nodes: ALL nodes belonging to ANY clique of size {selected_clique_size}
+2. Red edges: ALL edges within ANY clique of size {selected_clique_size} (width=1.0)
+3. Light blue nodes: All other nodes
+4. Gray edges: All other edges (width=0.5)
+
+WHY THESE GRAPHS ARE NON-ISOMORPHIC:
+======================================================================
+The two graphs are non-isomorphic because they have different numbers of cliques
+of size 4:
+  - Graph 1 has 87 cliques of size 4
+  - Graph 2 has 96 cliques of size 4
+  - Difference: 9 cliques
+
+ADDITIONAL EVIDENCE OF NON-ISOMORPHISM:
+----------------------------------------------------------------------
+1. Clique distribution differences:
+   The following clique sizes have different counts:
+   - Size 3: Graph 1 has 451, Graph 2 has 425 (difference: 26)
+   - Size 4: Graph 1 has 87, Graph 2 has 96 (difference: 9)
+
+2. Triangle count differences:
+   Both graphs have the same number of triangles.
+
+CONCLUSION:
+----------------------------------------------------------------------
+Although both graphs have the same global SRG parameters, their local clique structures
+differ significantly. These differences in clique distributions and arrangements are
+sufficient to prove they are non-isomorphic. The visualization highlights cliques of
+size 4, which shows clear structural differences between the graphs.

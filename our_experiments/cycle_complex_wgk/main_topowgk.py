@@ -104,13 +104,13 @@ def train_and_eval_worker(
         clf = grid.best_estimator_
         logits = clf.predict_proba(X_test)
         y_pred = logits.argmax(axis=1)
-        acc = accuracy_score(y_test, y_pred)
-        f1 = f1_score(y_test, y_pred, average='weighted')
+        acc = float(accuracy_score(y_test, y_pred))
+        f1 = float(f1_score(y_test, y_pred, average='weighted'))
         roc_auc = 0.0
         if num_cls > 2:
-            roc_auc = roc_auc_score(y_test, logits, multi_class='ovo')
+            roc_auc = float(roc_auc_score(y_test, logits, multi_class='ovo'))
         else:
-            roc_auc = roc_auc_score(y_test, logits[:, 1])
+            roc_auc = float(roc_auc_score(y_test, logits[:, 1]))
         
         # 记录结果
         print(f'dname = {dname}, alpha = {round(alpha, 6)}, gk_gamma = {round(gk_gamma, 8)}, best_svm_gamma = {best_svm_gamma}, acc = {round(acc, 6)}, f1 = {round(f1, 6)}, roc_auc = {round(roc_auc, 6)}')
@@ -196,7 +196,7 @@ def multiprocess_unit(train_and_eval_worker, args_list):
 def compute_svm_statistics(all_results):
     # 创建 DataFrame
     columns = ['alpha', 'gk_gamma', 'acc', 'f1_score', 'roc_auc_score', 'run_time']
-    df = pd.DataFrame(all_results, columns=columns)
+    df = pd.DataFrame(all_results, columns=pd.Index(columns))
     
     # 分组计算 mean 和 std
     grouped = df.groupby(['alpha', 'gk_gamma'])
@@ -281,11 +281,11 @@ def main(
     # 保存结果
     for _, row in result.iterrows():
         csv_writer.writerow([
-            round(row['alpha'], 6), round(row['gk_gamma'], 6),
-            round(row['acc'], 4), round(row['acc_std'], 4),
-            round(row['f1_score'], 4), round(row['f1_score_std'], 4),
-            round(row['roc_auc_score'], 4), round(row['roc_auc_score_std'], 4),
-            round(row['run_time'], 4)
+            round(float(row['alpha']), 6), round(float(row['gk_gamma']), 6),
+            round(float(row['acc']), 4), round(float(row['acc_std']), 4),
+            round(float(row['f1_score']), 4), round(float(row['f1_score_std']), 4),
+            round(float(row['roc_auc_score']), 4), round(float(row['roc_auc_score_std']), 4),
+            round(float(row['run_time']), 4)
         ])
     fout.flush()
     fout.close()

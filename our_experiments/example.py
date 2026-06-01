@@ -1,7 +1,7 @@
 import networkx as nx
 import numpy as np
 
-from hierarchical_cycle_complex_wl_tools.hierarchical_cycle_complex_bfs_neighbors import all_vtx_cycle_subspace_neighbors_serial
+from hierarchical_cycle_complex_wl_tools.hierarchical_cycle_complex_bfs_neighbors import build_vtx_hierarchical_cycle_contexts
 
 def get_vtx_cc_neighbors(g):
     node_neighs_dict = {v: g.neighbors(v) for v in g.nodes()}
@@ -49,7 +49,7 @@ if __name__ == '__main__':
     vtx_cc_neighbors_list = []
     deg_distr_list = []
     for g in graph_list:
-        vtx_cb_neighbors = all_vtx_cycle_subspace_neighbors_serial(g)
+        vtx_cb_neighbors = build_vtx_hierarchical_cycle_contexts(g)
         vtx_cc_neighbors = get_vtx_cc_neighbors(g)
         vtx_cb_neighbors_list.append(vtx_cb_neighbors)
         vtx_cc_neighbors_list.append(vtx_cc_neighbors)

@@ -13,11 +13,9 @@ parent_dir = os.path.dirname(cur_dir)
 parent_dir = os.path.dirname(parent_dir)
 sys.path.append(parent_dir)
 from utils import get_start_end_indices, precomp_node_neighs, get_recommended_nproc
-from hierarchical_cycle_complex_wl_tools.topo_aware_wl_test import topo_aware_wl_test
+from cyclic_schema.hierarchical_triangulated_wl import hierarchical_triangular_wl_unified
 
 # Module-level globals populated in worker initializer to avoid passing large objects per-task
-_GLOBAL_VTX_HCC = None
-_GLOBAL_VTX_TRI = None
 _GLOBAL_DEG_DISTR = None
 _GLOBAL_NODE_NEIGHS = None
 _GLOBAL_VLABEL_LIST = None
@@ -26,14 +24,15 @@ _GLOBAL_ELABEL_LIST = None
 _GLOBAL_DATASET_INFO = None
 _GLOBAL_NITER_TN = None
 _GLOBAL_NITER_HCC = None
+_GLOBAL_GRAPH_LIST = None
 
-def _worker_init(vtx_hcc_list, vtx_tri_list, deg_distr_list, node_neighs_list,
-                 vlabel_list, edges_list, elabel_list, dataset_info, niter_tn, niter_hcc):
-    global _GLOBAL_VTX_HCC, _GLOBAL_VTX_TRI, _GLOBAL_DEG_DISTR, _GLOBAL_NODE_NEIGHS
+def _worker_init(deg_distr_list, node_neighs_list,
+                 vlabel_list, edges_list, elabel_list, dataset_info, niter_tn, niter_hcc,
+                 graph_list):
+    global _GLOBAL_DEG_DISTR, _GLOBAL_NODE_NEIGHS
     global _GLOBAL_VLABEL_LIST, _GLOBAL_EDGES_LIST, _GLOBAL_ELABEL_LIST
     global _GLOBAL_DATASET_INFO, _GLOBAL_NITER_TN, _GLOBAL_NITER_HCC
-    _GLOBAL_VTX_HCC = vtx_hcc_list
-    _GLOBAL_VTX_TRI = vtx_tri_list
+    global _GLOBAL_GRAPH_LIST
     _GLOBAL_DEG_DISTR = deg_distr_list
     _GLOBAL_NODE_NEIGHS = node_neighs_list
     _GLOBAL_VLABEL_LIST = vlabel_list
@@ -42,8 +41,57 @@ def _worker_init(vtx_hcc_list, vtx_tri_list, deg_distr_list, node_neighs_list,
     _GLOBAL_DATASET_INFO = dataset_info
     _GLOBAL_NITER_TN = niter_tn
     _GLOBAL_NITER_HCC = niter_hcc
+    _GLOBAL_GRAPH_LIST = graph_list
 
 def _compute_block_worker(block):
+    # Globals are populated by _worker_init before any worker executes a block.
+    # The asserts both document the contract and narrow the global types
+    # for static analysis (Pylance/Pyright cannot trace Pool initializer side effects).
+    assert (
+        _GLOBAL_DEG_DISTR is not None and _GLOBAL_NODE_NEIGHS is not None
+        and _GLOBAL_VLABEL_LIST is not None and _GLOBAL_EDGES_LIST is not None
+        and _GLOBAL_ELABEL_LIST is not None
+        and _GLOBAL_DATASET_INFO is not None
+        and _GLOBAL_NITER_TN is not None and _GLOBAL_NITER_HCC is not None
+        and _GLOBAL_GRAPH_LIST is not None
+    ), "Worker globals not initialized; _worker_init must run before _compute_block_worker"
+    _g_info = _GLOBAL_DATASET_INFO
+    _graph_list = _GLOBAL_GRAPH_LIST
+    _vlabel_list = _GLOBAL_VLABEL_LIST
+    _edges_list = _GLOBAL_EDGES_LIST
+    _elabel_list = _GLOBAL_ELABEL_LIST
+    _node_neighs = _GLOBAL_NODE_NEIGHS
+    _deg_distr = _GLOBAL_DEG_DISTR
+
+    has_el = _g_info.get('el', False)
+
+    def _run_wl_test(ridx, cidx):
+        G1 = _graph_list[ridx]
+        G2 = _graph_list[cidx]
+        rv = _vlabel_list[ridx]
+        cv = _vlabel_list[cidx]
+        if has_el:
+            re = _edges_list[ridx]
+            ce = _edges_list[cidx]
+            rel = _elabel_list[ridx]
+            cel = _elabel_list[cidx]
+            ed1 = {tuple(e): int(rel[i]) for i, e in enumerate(re)}
+            ed2 = {tuple(e): int(cel[i]) for i, e in enumerate(ce)}
+        else:
+            ed1, ed2 = None, None
+        return hierarchical_triangular_wl_unified(
+            _g_info, G1, G2, rv, cv, ed1, ed2,
+            K=_GLOBAL_NITER_HCC, I=_GLOBAL_NITER_TN,
+        )
+
+    def _wl_counter(node_neighs, vwl_np, vmax_label):
+        from collections import Counter as _Counter
+        vwl_counter = np.zeros((vwl_np.shape[0], vmax_label + 1))
+        for ridx, neighs in node_neighs.items():
+            for l, n in _Counter(vwl_np[neighs, :].flatten('F')).items():
+                vwl_counter[ridx, l] = n
+        return vwl_counter
+
     start_ridx, end_ridx, start_cidx, end_cidx = block
     ot_dist_diag = np.zeros((end_ridx - start_ridx, end_cidx - start_cidx))
     wl_sim_diag = np.zeros((end_ridx - start_ridx, end_cidx - start_cidx))
@@ -52,60 +100,23 @@ def _compute_block_worker(block):
     print(f'\t The ({start_ridx}, {end_ridx}, {start_cidx}, {end_cidx}) graph similarity submatrix')
     for gridx in range(start_ridx, end_ridx):
         dridx = gridx - start_ridx
-        r_vtx_hierarchical_cycle_contexts = _GLOBAL_VTX_HCC[gridx]
-        r_vtx_triangulated_neighbors = _GLOBAL_VTX_TRI[gridx]
-        r_deg_distr = _GLOBAL_DEG_DISTR[gridx]
-        r_node_neighs = _GLOBAL_NODE_NEIGHS[gridx]
-        rvlabel_np = _GLOBAL_VLABEL_LIST[gridx]
-        redges = _GLOBAL_EDGES_LIST[gridx]
-        relabel_np = _GLOBAL_ELABEL_LIST[gridx]
+        r_deg_distr = _deg_distr[gridx]
         if is_diagonal:
             temp_start_cidx = gridx + 1
         for gcidx in range(temp_start_cidx, end_cidx):
-            c_vtx_hierarchical_cycle_contexts = _GLOBAL_VTX_HCC[gcidx]
-            c_vtx_triangulated_neighbors = _GLOBAL_VTX_TRI[gcidx]
-            c_deg_distr = _GLOBAL_DEG_DISTR[gcidx]
-            c_node_neighs = _GLOBAL_NODE_NEIGHS[gcidx]
-            cvlabel_np = _GLOBAL_VLABEL_LIST[gcidx]
-            cedges = _GLOBAL_EDGES_LIST[gcidx]
-            celabel_np = _GLOBAL_ELABEL_LIST[gcidx]
-            rvwl_np, cvwl_np = topo_aware_wl_test(
-                _GLOBAL_DATASET_INFO, _GLOBAL_NITER_TN, _GLOBAL_NITER_HCC,
-                r_vtx_triangulated_neighbors, c_vtx_triangulated_neighbors,
-                r_vtx_hierarchical_cycle_contexts, c_vtx_hierarchical_cycle_contexts,
-                rvlabel_np, cvlabel_np,
-                redges, cedges, relabel_np, celabel_np
-            )
-            # compute transport cost using the same helper logic as the class method
-            from collections import Counter as _Counter
-            def _wl_counter(node_neighs, vwl_np, vmax_label):
-                vwl_counter = np.zeros((vwl_np.shape[0], vmax_label + 1))
-                for ridx, neighs in node_neighs.items():
-                    for l, n in _Counter(vwl_np[neighs, :].flatten('F')).items():
-                        vwl_counter[ridx, l] = n
-                return vwl_counter
+            rvwl_np, cvwl_np = _run_wl_test(gridx, gcidx)
             native_vmax_label = max(rvwl_np.max(), cvwl_np.max())
-            native_vwl_counter1 = _wl_counter(_GLOBAL_NODE_NEIGHS[gridx], rvwl_np, native_vmax_label)
-            native_vwl_counter2 = _wl_counter(_GLOBAL_NODE_NEIGHS[gcidx], cvwl_np, native_vmax_label)
-            transport_cost = cdist(native_vwl_counter1, native_vwl_counter2, metric = 'sqeuclidean')
-
+            native_vwl_counter1 = _wl_counter(_node_neighs[gridx], rvwl_np, native_vmax_label)
+            native_vwl_counter2 = _wl_counter(_node_neighs[gcidx], cvwl_np, native_vmax_label)
+            transport_cost = cdist(native_vwl_counter1, native_vwl_counter2, metric='sqeuclidean')
             dcidx = gcidx - start_cidx
             ot_dist_diag[dridx, dcidx] = ot.emd2(
-                _GLOBAL_DEG_DISTR[gridx], _GLOBAL_DEG_DISTR[gcidx], transport_cost
+                r_deg_distr, _deg_distr[gcidx], transport_cost,
             )
-            wl_sim_diag[dridx, dcidx] = np.dot(
-                (rvwl_np.flatten('F')==rvwl_np).sum(), (cvwl_np.flatten('F')==cvwl_np).sum()
-            ) if False else TopoWassersteinGraphKernel.wl_inner_product(None, rvwl_np, cvwl_np)
-
+            wl_sim_diag[dridx, dcidx] = TopoWassersteinGraphKernel.wl_inner_product(rvwl_np, cvwl_np)
         if is_diagonal:
-            rvwl_np, cvwl_np = topo_aware_wl_test(
-                _GLOBAL_DATASET_INFO, _GLOBAL_NITER_TN, _GLOBAL_NITER_HCC,
-                r_vtx_triangulated_neighbors, r_vtx_triangulated_neighbors,
-                r_vtx_hierarchical_cycle_contexts, r_vtx_hierarchical_cycle_contexts,
-                rvlabel_np, rvlabel_np,
-                redges, redges, relabel_np, relabel_np
-            )
-            wl_sim_diag[dridx, dridx] = TopoWassersteinGraphKernel.wl_inner_product(None, rvwl_np, cvwl_np)
+            rvwl_np, _ = _run_wl_test(gridx, gridx)
+            wl_sim_diag[dridx, dridx] = TopoWassersteinGraphKernel.wl_inner_product(rvwl_np, rvwl_np)
     return (start_ridx, end_ridx, start_cidx, end_cidx, ot_dist_diag, wl_sim_diag)
 
 class TopoWassersteinGraphKernel:
@@ -114,7 +125,8 @@ class TopoWassersteinGraphKernel:
         self._niter_hcc = niter_hcc
         self._wl_normalized = wl_normalized
     
-    def wl_inner_product(self, vwl_np1, vwl_np2):
+    @staticmethod
+    def wl_inner_product(vwl_np1, vwl_np2):
         vmax_label = max(vwl_np1.max(), vwl_np2.max())
         label_distr1 = np.zeros((vmax_label + 1, ))
         label_distr2 = np.zeros_like(label_distr1)
@@ -150,6 +162,26 @@ class TopoWassersteinGraphKernel:
         
         return transport_cost
     
+    def _run_wl_test(self, ridx, cidx):
+        """Dispatch to the unified hierarchical WL test (handles both node-only and edge-label cases)."""
+        G1 = self.graph_list[ridx]
+        G2 = self.graph_list[cidx]
+        rv = self.vlabel_list[ridx]
+        cv = self.vlabel_list[cidx]
+        if self._dataset_info.get('el', False):
+            re = self.edges_list[ridx]
+            ce = self.edges_list[cidx]
+            rel = self.elabel_list[ridx]
+            cel = self.elabel_list[cidx]
+            ed1 = {tuple(e): int(rel[i]) for i, e in enumerate(re)}
+            ed2 = {tuple(e): int(cel[i]) for i, e in enumerate(ce)}
+        else:
+            ed1, ed2 = None, None
+        return hierarchical_triangular_wl_unified(
+            self._dataset_info, G1, G2, rv, cv, ed1, ed2,
+            K=self._niter_hcc, I=self._niter_tn,
+        )
+
     def _otdist_wlsim_worker(self, start_ridx, end_ridx, start_cidx, end_cidx):
         ot_dist_diag = np.zeros((end_ridx - start_ridx, end_cidx - start_cidx))
         wl_sim_diag = np.zeros((end_ridx - start_ridx, end_cidx - start_cidx))
@@ -158,52 +190,24 @@ class TopoWassersteinGraphKernel:
         print(f'\t The ({start_ridx}, {end_ridx}, {start_cidx}, {end_cidx}) graph similarity submatrix')
         for gridx in range(start_ridx, end_ridx):
             dridx = gridx - start_ridx
-            # gridx = indices_data[i]
-            r_vtx_hierarchical_cycle_contexts = self.vtx_hierarchical_cycle_contexts_list[gridx]
-            r_vtx_triangulated_neighbors = self.vtx_triangulated_neighbors_list[gridx]
             r_deg_distr = self.deg_distr_list[gridx]
-            # r_graph = self.graph_list[gridx]
             r_node_neighs = self.node_neighs_list[gridx]
-            rvlabel_np = self.vlabel_list[gridx]
-            redges = self.edges_list[gridx]
-            relabel_np = self.elabel_list[gridx]
             if is_diagonal:
                 temp_start_cidx = gridx + 1
             for gcidx in range(temp_start_cidx, end_cidx):
-                # gcidx = indices_data[j]
-                c_vtx_hierarchical_cycle_contexts = self.vtx_hierarchical_cycle_contexts_list[gcidx]
-                c_vtx_triangulated_neighbors = self.vtx_triangulated_neighbors_list[gcidx]
-                c_deg_distr = self.deg_distr_list[gcidx]
-                # c_graph = self.graph_list[gcidx]
-                c_node_neighs = self.node_neighs_list[gcidx]
-                cvlabel_np = self.vlabel_list[gcidx]
-                cedges = self.edges_list[gcidx]
-                celabel_np = self.elabel_list[gcidx]
-                rvwl_np, cvwl_np = topo_aware_wl_test(
-                    self._dataset_info, self._niter_tn, self._niter_hcc, 
-                    r_vtx_triangulated_neighbors, c_vtx_triangulated_neighbors, 
-                    r_vtx_hierarchical_cycle_contexts, c_vtx_hierarchical_cycle_contexts, 
-                    rvlabel_np, cvlabel_np, 
-                    redges, cedges, relabel_np, celabel_np
-                )
+                rvwl_np, cvwl_np = self._run_wl_test(gridx, gcidx)
                 transport_cost = self._comp_transport_cost(
-                    r_node_neighs, c_node_neighs, rvwl_np, cvwl_np
+                    r_node_neighs, self.node_neighs_list[gcidx], rvwl_np, cvwl_np
                 )
                 dcidx = gcidx - start_cidx
                 ot_dist_diag[dridx, dcidx] = ot.emd2(
-                    r_deg_distr, c_deg_distr, transport_cost
+                    r_deg_distr, self.deg_distr_list[gcidx], transport_cost
                 )
                 wl_sim_diag[dridx, dcidx] = self.wl_inner_product(rvwl_np, cvwl_np)
-            
+
             if is_diagonal:
-                rvwl_np, cvwl_np = topo_aware_wl_test(
-                    self._dataset_info, self._niter_tn, self._niter_hcc, 
-                    r_vtx_triangulated_neighbors, r_vtx_triangulated_neighbors, 
-                    r_vtx_hierarchical_cycle_contexts, r_vtx_hierarchical_cycle_contexts, 
-                    rvlabel_np, rvlabel_np, 
-                    redges, redges, relabel_np, relabel_np
-                ) # (num_nodes, niter)
-                wl_sim_diag[dridx, dridx] = self.wl_inner_product(rvwl_np, cvwl_np)
+                rvwl_np, _ = self._run_wl_test(gridx, gridx)
+                wl_sim_diag[dridx, dridx] = self.wl_inner_product(rvwl_np, rvwl_np)
         return (start_ridx, end_ridx, start_cidx, end_cidx, ot_dist_diag, wl_sim_diag)
 
     def fit(
@@ -240,8 +244,6 @@ class TopoWassersteinGraphKernel:
             processes = nproc,
             initializer = _worker_init,
             initargs = (
-                self.vtx_hierarchical_cycle_contexts_list,
-                self.vtx_triangulated_neighbors_list,
                 self.deg_distr_list,
                 self.node_neighs_list,
                 self.vlabel_list,
@@ -250,6 +252,7 @@ class TopoWassersteinGraphKernel:
                 self._dataset_info,
                 self._niter_tn,
                 self._niter_hcc,
+                self.graph_list,
             )
         )
 

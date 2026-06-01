@@ -28,7 +28,7 @@ from typing import Any, Dict, Hashable, List, Optional, Sequence, Tuple, Union
 import networkx as nx
 import numpy as np
 
-from cyclic_schema import (
+from .cyclic_schema import (
     build_csg_to_input_mapping,
     build_example1_graph,
     build_input_to_csg_mapping,

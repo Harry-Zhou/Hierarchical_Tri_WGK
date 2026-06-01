@@ -1,5 +1,14 @@
 """
 Cyclic Schema - Graph neural network tools for cyclic structure analysis.
+
+Exports:
+  Step-1 CSG construction (cyclic_schema):
+    cyclic_schematic_graph, build_multilayer_csg, build_multilayer_csg_with_mappings,
+    build_csg_to_input_mapping, build_input_to_csg_mapping, ...
+
+  Step-2/Step-3 hierarchical WL (hierarchical_triangulated_wl):
+    hierarchical_triangular_wl, hierarchical_triangular_wl_with_edges,
+    hierarchical_triangular_wl_unified, ...
 """
 
 __version__ = "0.1.0"
@@ -22,4 +31,17 @@ from .cyclic_schema import (
     print_analysis_info,
     get_cycle_edges,
     get_edge_in_cycle,
+)
+
+from .hierarchical_triangulated_wl import (
+    hierarchical_triangular_wl,
+    hierarchical_triangular_wl_with_edges,
+    hierarchical_triangular_wl_unified,
+    forward_aggregate,
+    forward_message_passing_both,
+    backward_message_passing_both,
+    backward_message_passing_both_with_edges,
+    canonicalize_cycle_label,
+    compute_initial_label_tuples,
+    compute_final_label_tuples,
 )

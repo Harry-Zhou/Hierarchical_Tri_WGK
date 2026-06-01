@@ -1,0 +1,24 @@
+{
+  "include": ["."],
+  "exclude": [
+    "**/__pycache__",
+    "**/*.pyc",
+    "**/.git",
+    "**/outputs*",
+    "**/outputs",
+    "**/cache",
+    "**/*.pkl",
+    "cyclic_schema/**"
+  ],
+  "pythonVersion": "3.13",
+  "pythonPath": "/home/harryzhou/anaconda3/bin/python3",
+  "venvPath": "/home/harryzhou/anaconda3",
+  "extraPaths": ["."],
+  "typeCheckingMode": "basic",
+  "reportMissingImports": false,
+  "reportMissingModuleSource": false,
+  "reportMissingTypeStubs": false,
+  "reportCallIssue": false,
+  "reportArgumentType": false,
+  "reportGeneralTypeIssues": false
+}

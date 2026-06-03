@@ -1,7 +1,7 @@
 import networkx as nx
 import numpy as np
 
-from hierarchical_cycle_complex_wl_tools.hierarchical_cycle_complex_bfs_neighbors import build_vtx_hierarchical_cycle_contexts
+from hierarchical_tri_wl_tools.hierarchical_cycle_complex_bfs_neighbors import build_vtx_hierarchical_cycle_contexts
 
 def get_vtx_cc_neighbors(g):
     node_neighs_dict = {v: g.neighbors(v) for v in g.nodes()}

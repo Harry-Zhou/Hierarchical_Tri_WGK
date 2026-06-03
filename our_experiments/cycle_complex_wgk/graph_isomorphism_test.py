@@ -8,7 +8,7 @@ parent_dir = os.path.dirname(cur_dir)
 parent_dir = os.path.dirname(parent_dir)
 sys.path.append(parent_dir)
 from topo_wasserstein_graph_kernel import TopoWassersteinGraphKernel
-from hierarchical_cycle_complex_wl_tools.hierarchical_cycle_complex_bfs_neighbors import build_vtx_hierarchical_cycle_contexts
+from hierarchical_tri_wl_tools.hierarchical_cycle_complex_bfs_neighbors import build_vtx_hierarchical_cycle_contexts
 from utils import precomp_node_neighs
 
 def build_vtx_triangulated_neighbors(g):

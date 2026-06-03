@@ -10,7 +10,7 @@ parent_dir = os.path.dirname(parent_dir)
 sys.path.append(parent_dir)
 
 from utils import get_start_end_indices
-from hierarchical_cycle_complex_wl_tools.hierarchical_cycle_complex_bfs_neighbors import build_vtx_hierarchical_cycle_contexts
+from hierarchical_tri_wl_tools.hierarchical_cycle_complex_bfs_neighbors import build_vtx_hierarchical_cycle_contexts
 
 def build_vtx_triangulated_neighbors(g):
     node_neighs_dict = {v: g.neighbors(v) for v in g.nodes()}

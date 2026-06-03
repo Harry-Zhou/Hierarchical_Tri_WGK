@@ -22,7 +22,7 @@ from our_experiments.cycle_complex_wgk.topo_wasserstein_graph_kernel import (
 from our_experiments.cycle_complex_wgk.process_dataset import (
     build_vtx_triangulated_neighbors,
 )
-from hierarchical_cycle_complex_wl_tools.hierarchical_cycle_complex_bfs_neighbors import (
+from hierarchical_tri_wl_tools.hierarchical_cycle_complex_bfs_neighbors import (
     build_vtx_hierarchical_cycle_contexts,
 )
 from cyclic_schema.hierarchical_triangulated_wl import (

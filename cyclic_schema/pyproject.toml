@@ -1,24 +1,23 @@
 [build-system]
-requires = ["setuptools>=42", "wheel"]
-build-backend = "setuptools.backends._legacy:_Backend"
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
-name = "cyclic_schema"
+name = "cyclic-schema"
 version = "0.1.0"
 description = "Graph neural network tools for cyclic structure analysis"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 dependencies = [
     "numpy>=1.20.0",
     "networkx>=2.6.0",
+    "scipy>=1.7.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=6.0",
-    "black>=21.0",
-    "isort>=5.0",
 ]
 
 [tool.setuptools.packages.find]

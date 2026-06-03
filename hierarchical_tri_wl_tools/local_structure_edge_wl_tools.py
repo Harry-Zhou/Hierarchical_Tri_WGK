@@ -5,7 +5,7 @@ import os
 import sys
 cur_dir = os.path.dirname(__file__)
 sys.path.append(cur_dir)
-from local_structure_wl_tools import compress_and_relabel_vlabel, local_structure_wl_test
+from .local_structure_wl_tools import compress_and_relabel_vlabel, local_structure_wl_test
 
 def collect_vlabels_edge(vlabel_np, elabel_dict):
     elabel_collection = {}

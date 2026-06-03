@@ -5,14 +5,12 @@
     "**/*.pyc",
     "**/.git",
     "**/outputs*",
-    "**/outputs",
     "**/cache",
     "**/*.pkl",
-    "cyclic_schema/**"
+    "**/topowgk_outputs*",
+    "eval_grakel_baselines/**"
   ],
-  "pythonVersion": "3.13",
-  "pythonPath": "/home/harryzhou/anaconda3/bin/python3",
-  "venvPath": "/home/harryzhou/anaconda3",
+  "pythonVersion": "3.9",
   "extraPaths": ["."],
   "typeCheckingMode": "basic",
   "reportMissingImports": false,

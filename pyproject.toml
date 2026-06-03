@@ -1,0 +1,74 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "topo-wgk"
+version = "0.1.0"
+description = "Short-Long Topology-Aware Graph Kernel — combining WL propagation and Optimal Transport for graph similarity"
+readme = "README.md"
+license = {file = "LICENSE"}
+requires-python = ">=3.9"
+dependencies = [
+    "numpy>=1.20.0",
+    "networkx>=2.6.0",
+    "scipy>=1.7.0",
+    "scikit-learn>=1.0.0",
+    "pandas>=1.3.0",
+    "pot>=0.8.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=6.0",
+    "matplotlib>=3.4.0",
+]
+grakel = [
+    "grakel>=0.1.8",
+]
+sage = [
+    "sagemath-standard",
+]
+dgl = [
+    "dgl",
+    "torch",
+]
+
+[tool.setuptools.packages.find]
+include = [
+    "cyclic_schema*",
+    "hierarchical_tri_wl_tools*",
+    "our_experiments*",
+]
+exclude = ["tests*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests", "cyclic_schema"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+    "kernel: marks tests that require grakel/OT dependencies",
+]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.pyright]
+include = ["."]
+exclude = [
+    "**/__pycache__",
+    "**/*.pyc",
+    "**/.git",
+    "**/outputs*",
+    "**/cache",
+    "**/*.pkl",
+    "**/topowgk_outputs*",
+    "eval_grakel_baselines/**",
+]
+pythonVersion = "3.9"
+typeCheckingMode = "basic"
+extraPaths = ["."]
+reportMissingImports = false
+reportMissingModuleSource = false
+reportMissingTypeStubs = false
+reportCallIssue = false
+reportArgumentType = false
+reportGeneralTypeIssues = false

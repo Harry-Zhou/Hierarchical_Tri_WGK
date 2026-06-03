@@ -42,6 +42,10 @@ Thumbs.db
 our_experiments/cache/
 *.pkl
 
+# Cache
+.pytest_cache/
+.sisyphus/
+
 # History (backup files)
 .history/
 

@@ -242,15 +242,13 @@ def main(
         with open(cache_file, 'rb') as f:
             ot_dist_np, wl_sim_np, y, run_time = pickle.load(f)
     else:
-        graph_list, vlabel_list, edges_list, elabel_list, \
-            vtx_hierarchical_cycle_contexts_list, vtx_triangulated_neighbors_list, deg_distr_list, y \
+        graph_list, vlabel_list, edges_list, elabel_list, deg_distr_list, y \
             = construct_dataset(dataset_dict)
 
         print(f"Computing results for {dname} with niter_tn={niter_tn}, niter_hcc={niter_hcc}")
         cyc_wl_gk = TopoWassersteinGraphKernel(niter_tn, niter_hcc, wl_normalized = True)
         ot_dist_np, wl_sim_np, run_time = cyc_wl_gk.fit_transform(
             dataset_dict['dataset_info'], graph_list, vlabel_list, edges_list, elabel_list, 
-            vtx_hierarchical_cycle_contexts_list, vtx_triangulated_neighbors_list,
             deg_distr_list
         )
         # Save to cache

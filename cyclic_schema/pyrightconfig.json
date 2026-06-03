@@ -1,8 +1,6 @@
 {
   "include": ["."],
   "pythonVersion": "3.13",
-  "pythonPath": "/home/harryzhou/anaconda3/bin/python3",
-  "venvPath": "/home/harryzhou/anaconda3",
   "reportMissingImports": true,
   "reportMissingModuleSource": true,
   "reportMissingTypeStubs": false

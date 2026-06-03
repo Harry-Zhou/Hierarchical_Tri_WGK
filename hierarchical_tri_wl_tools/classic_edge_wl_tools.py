@@ -45,13 +45,14 @@ def update_elabel(
 def propagate_vlabel_from_edges(node_neighs_dict, vlabel_np, elabel_dict):
     vlabel_collection = {}
     for v in node_neighs_dict:
-        vlabel_collection[v] = [vlabel_np[v], ]
+        cur_vlabels = [int(vlabel_np[v])]
         temp_vlabel_collection = []
         for v_nei in node_neighs_dict[v]:
             v_edge = (v, v_nei) if v <= v_nei else (v_nei, v)
             temp_vlabel_collection.append(elabel_dict[v_edge])
         temp_vlabel_collection.sort()
-        vlabel_collection[v].extend(temp_vlabel_collection)
+        cur_vlabels.extend(temp_vlabel_collection)
+        vlabel_collection[v] = tuple(cur_vlabels)
     return vlabel_collection
 
 def classic_edge_WL_test(
@@ -116,7 +117,7 @@ def gdv_edge_WL_test(
             niter
         )
         for gdv_idx in range(gdv_dim):
-            wl_np1[:, :, gdv_idx + 1], wl_np2[:, :, gdv_idx + 1] = classic_WL_test(
+            wl_np1[:, :, gdv_idx + 1], wl_np2[:, :, gdv_idx + 1] = classic_wl_test(
                 g1, g2, 
                 gdv1[:, gdv_idx], gdv2[:, gdv_idx], 
                 niter
@@ -132,20 +133,20 @@ def gdv_edge_WL_test(
             niter
         )
         for gdv_idx in range(gdv_dim):
-            wl_np1[:, :, gdv_idx + 1], wl_np2[:, :, gdv_idx + 1] = classic_WL_test(
+            wl_np1[:, :, gdv_idx + 1], wl_np2[:, :, gdv_idx + 1] = classic_wl_test(
                 g1, g2, 
                 gdv1[:, gdv_idx], gdv2[:, gdv_idx], 
                 niter
             )
     elif (dataset_info['nl'] and (not dataset_info['el'])):
         # node labeled and edge not labeled
-        wl_np1[:, :, 0], wl_np2[:, :, 0] = classic_WL_test(
+        wl_np1[:, :, 0], wl_np2[:, :, 0] = classic_wl_test(
             g1, g2, 
             vlabel_np1, vlabel_np2, 
             niter
         )
         for gdv_idx in range(gdv_dim):
-            wl_np1[:, :, gdv_idx + 1], wl_np2[:, :, gdv_idx + 1] = classic_WL_test(
+            wl_np1[:, :, gdv_idx + 1], wl_np2[:, :, gdv_idx + 1] = classic_wl_test(
                 g1, g2, 
                 gdv1[:, gdv_idx], gdv2[:, gdv_idx], 
                 niter
@@ -153,7 +154,7 @@ def gdv_edge_WL_test(
     else:
         # node not labeled and edge not labeled
         for gdv_idx in range(gdv_dim):
-            wl_np1[:, :, gdv_idx + 1], wl_np2[:, :, gdv_idx + 1] = classic_WL_test(
+            wl_np1[:, :, gdv_idx + 1], wl_np2[:, :, gdv_idx + 1] = classic_wl_test(
                 g1, g2, 
                 gdv1[:, gdv_idx], gdv2[:, gdv_idx], 
                 niter

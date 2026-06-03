@@ -772,7 +772,7 @@ def hierarchical_triangular_wl(
         # Lazy-import the triangulated neighbors WL module
         _hcc_dir = _os.path.normpath(_os.path.join(
             _os.path.dirname(__file__),
-            '..', 'hierarchical_cycle_complex_wl_tools'))
+            '..', 'hierarchical_tri_wl_tools'))
         if _hcc_dir not in _sys.path:
             _sys.path.insert(0, _hcc_dir)
         from node_wl_via_triangulated_neighbors import (  # pyright: ignore[reportMissingImports]
@@ -1078,14 +1078,14 @@ def hierarchical_triangular_wl_with_edges(
     if K == 0:
         _hcc_dir = _os.path.normpath(_os.path.join(
             _os.path.dirname(__file__),
-            '..', 'hierarchical_cycle_complex_wl_tools'))
+            '..', 'hierarchical_tri_wl_tools'))
         if _hcc_dir not in _sys.path:
             _sys.path.insert(0, _hcc_dir)
         # Also add parent dir so import with package prefix makes relative imports work
         _hcc_parent = _os.path.normpath(_os.path.join(_hcc_dir, '..'))
         if _hcc_parent not in _sys.path:
             _sys.path.insert(0, _hcc_parent)
-        from hierarchical_cycle_complex_wl_tools.edge_wl_via_triangulated_neighbors import (  # pyright: ignore[reportMissingImports]
+        from hierarchical_tri_wl_tools.edge_wl_via_triangulated_neighbors import (  # pyright: ignore[reportMissingImports]
             edge_wl_test_triangulated_neighbors
         )
 
@@ -1417,7 +1417,7 @@ def _build_two_triangles() -> nx.Graph:
 
 if __name__ == "__main__":
     import sys
-    sys.path.insert(0, '/home/harryzhou/cyclic_schema')
+    sys.path.insert(0, _os.path.dirname(_os.path.dirname(__file__)))
 
     G1 = build_example1_graph()
     G2 = build_example1_graph()

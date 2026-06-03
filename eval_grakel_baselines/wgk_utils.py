@@ -16,12 +16,32 @@ class WassersteinGraphKernel:
         self._p = p
         self._eigval_ndigits = eigval_ndigits
         self._prob_ndigits = prob_ndigits
+        self._graph_eigval_distribution_list = []
         
     def comp_graph_matrix(self, dgl_graph):
         adj = dgl_graph.adj().to_dense()
         lap = torch.diag(adj.sum(dim = 1)) - adj
         
         return torch.block_diag(adj, lap)
+
+    def gen_ctx_trace_nodes(self, dgl_graph, len_rw_trace, num_rw_trace):
+        import torch
+        num_nodes = dgl_graph.num_nodes()
+        traces = torch.zeros(
+            num_nodes, len_rw_trace, num_rw_trace, dtype=torch.long
+        )
+        adj = dgl_graph.adj().to_dense()
+        for v in range(num_nodes):
+            for rw in range(num_rw_trace):
+                cur = v
+                for step in range(len_rw_trace):
+                    traces[v, step, rw] = cur
+                    neighbors = torch.where(adj[cur] > 0)[0]
+                    if len(neighbors) > 0:
+                        cur = neighbors[
+                            torch.randint(len(neighbors), (1,))
+                        ].item()
+        return traces
 
     def comp_graph_eigval_distribution(self, dgl_graph, rw_trace):
         num_rws = rw_trace.shape[2]
@@ -55,17 +75,17 @@ class WassersteinGraphKernel:
         ).item()
     
     def fit(self, tgt_graph_list):
-        graph_eigval_distribution_list = []
+        self._graph_eigval_distribution_list = []
         for g in tgt_graph_list:
             rw_trace = self.gen_ctx_trace_nodes(
                 g, self._len_rw_trace, self._num_rw_trace
             )
             eigval_distribution = self.comp_graph_eigval_distribution(
-                g, rw_trace, self._eigval_ndigits, self._prob_ndigits
+                g, rw_trace
             )
             self._graph_eigval_distribution_list.append(eigval_distribution)
         
-        return graph_eigval_distribution_list
+        return self._graph_eigval_distribution_list
         
     def fit_transform(self, tgt_graph_list):
         self._tgt_graph_eigval_distribution_list = self.fit(tgt_graph_list)
@@ -168,6 +188,17 @@ def gen_train_test_dataset(X, y):
         X, y, test_size = 0.2, random_state = 42
     )
     return X_train, X_test, np.array(y_train), np.array(y_test)
+
+def comp_graph_similarity_mat(
+    graph_list, len_rw_trace, num_rws, is_normalized,
+    p, eigval_ndigits, prob_ndigits
+):
+    kernel = WassersteinGraphKernel(
+        len_rw_trace, num_rws, is_normalized,
+        p=p, eigval_ndigits=eigval_ndigits, prob_ndigits=prob_ndigits
+    )
+    return kernel.fit_transform(graph_list)
+
 
 def get_param_setting():
     param_setting = {

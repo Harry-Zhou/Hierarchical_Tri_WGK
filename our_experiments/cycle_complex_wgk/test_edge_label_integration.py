@@ -19,7 +19,7 @@ from utils import precomp_node_neighs
 from our_experiments.cycle_complex_wgk.topo_wasserstein_graph_kernel import (
     TopoWassersteinGraphKernel,
 )
-from our_experiments.cycle_complex_wgk.process_dataset import (
+from our_experiments.cycle_complex_wgk.graph_isomorphism_test import (
     build_vtx_triangulated_neighbors,
 )
 from hierarchical_tri_wl_tools.hierarchical_cycle_complex_bfs_neighbors import (

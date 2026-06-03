@@ -31,7 +31,6 @@ def get_start_end_indices(num_samples, num_cells = cpu_count()):
                     tail_start_end_indices.append(
                         (header_tail_idx + i * cell_size, header_tail_idx + j * cell_size)
                     )
-            tail_start_end_indices[-1][-1]
             if tail_start_end_indices[-1][-1] < num_samples:
                 tail_start_end_indices.append((tail_start_end_indices[-1][-1], num_samples))
             start_end_indices = header_start_end_indices + tail_start_end_indices

@@ -10,8 +10,11 @@ import time
 import sys
 sys.path.append('..')
 
-from utils import comp_graph_similarity_mat
-from wgk_utils import gen_train_test_dataset, get_param_setting
+from wgk_utils import (
+    comp_graph_similarity_mat,
+    gen_train_test_dataset,
+    get_param_setting,
+)
 
 def load_gc_test_datasets():
     raw_dir = os.path.join('..', 'datasets_gc')

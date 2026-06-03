@@ -15,6 +15,11 @@ sys.path.append(parent_dir)
 from utils import get_start_end_indices, precomp_node_neighs, get_recommended_nproc
 from cyclic_schema.hierarchical_triangulated_wl import hierarchical_triangular_wl_unified
 
+
+def _build_elabel_dict(edges, elabels):
+    return {tuple(e): int(elabels[i]) for i, e in enumerate(edges)}
+
+
 # Module-level globals populated in worker initializer to avoid passing large objects per-task
 _GLOBAL_DEG_DISTR = None
 _GLOBAL_NODE_NEIGHS = None
@@ -71,12 +76,8 @@ def _compute_block_worker(block):
         rv = _vlabel_list[ridx]
         cv = _vlabel_list[cidx]
         if has_el:
-            re = _edges_list[ridx]
-            ce = _edges_list[cidx]
-            rel = _elabel_list[ridx]
-            cel = _elabel_list[cidx]
-            ed1 = {tuple(e): int(rel[i]) for i, e in enumerate(re)}
-            ed2 = {tuple(e): int(cel[i]) for i, e in enumerate(ce)}
+            ed1 = _build_elabel_dict(_edges_list[ridx], _elabel_list[ridx])
+            ed2 = _build_elabel_dict(_edges_list[cidx], _elabel_list[cidx])
         else:
             ed1, ed2 = None, None
         return hierarchical_triangular_wl_unified(
@@ -110,9 +111,12 @@ def _compute_block_worker(block):
             native_vwl_counter2 = _wl_counter(_node_neighs[gcidx], cvwl_np, native_vmax_label)
             transport_cost = cdist(native_vwl_counter1, native_vwl_counter2, metric='sqeuclidean')
             dcidx = gcidx - start_cidx
-            ot_dist_diag[dridx, dcidx] = ot.emd2(
-                r_deg_distr, _deg_distr[gcidx], transport_cost,
-            )
+            sw_dist = float(ot.sliced.sliced_wasserstein_distance(
+                native_vwl_counter1, native_vwl_counter2,
+                r_deg_distr, _deg_distr[gcidx],
+                n_projections=50, log=False,
+            ))
+            ot_dist_diag[dridx, dcidx] = sw_dist ** 2
             wl_sim_diag[dridx, dcidx] = TopoWassersteinGraphKernel.wl_inner_product(rvwl_np, cvwl_np)
         if is_diagonal:
             rvwl_np, _ = _run_wl_test(gridx, gridx)
@@ -160,21 +164,16 @@ class TopoWassersteinGraphKernel:
             native_vwl_counter1, native_vwl_counter2, metric = 'sqeuclidean'
         )
         
-        return transport_cost
+        return transport_cost, native_vwl_counter1, native_vwl_counter2
     
     def _run_wl_test(self, ridx, cidx):
-        """Dispatch to the unified hierarchical WL test (handles both node-only and edge-label cases)."""
         G1 = self.graph_list[ridx]
         G2 = self.graph_list[cidx]
         rv = self.vlabel_list[ridx]
         cv = self.vlabel_list[cidx]
         if self._dataset_info.get('el', False):
-            re = self.edges_list[ridx]
-            ce = self.edges_list[cidx]
-            rel = self.elabel_list[ridx]
-            cel = self.elabel_list[cidx]
-            ed1 = {tuple(e): int(rel[i]) for i, e in enumerate(re)}
-            ed2 = {tuple(e): int(cel[i]) for i, e in enumerate(ce)}
+            ed1 = _build_elabel_dict(self.edges_list[ridx], self.elabel_list[ridx])
+            ed2 = _build_elabel_dict(self.edges_list[cidx], self.elabel_list[cidx])
         else:
             ed1, ed2 = None, None
         return hierarchical_triangular_wl_unified(
@@ -196,13 +195,16 @@ class TopoWassersteinGraphKernel:
                 temp_start_cidx = gridx + 1
             for gcidx in range(temp_start_cidx, end_cidx):
                 rvwl_np, cvwl_np = self._run_wl_test(gridx, gcidx)
-                transport_cost = self._comp_transport_cost(
+                _, vwl_c1, vwl_c2 = self._comp_transport_cost(
                     r_node_neighs, self.node_neighs_list[gcidx], rvwl_np, cvwl_np
                 )
                 dcidx = gcidx - start_cidx
-                ot_dist_diag[dridx, dcidx] = ot.emd2(
-                    r_deg_distr, self.deg_distr_list[gcidx], transport_cost
-                )
+                sw_dist = float(ot.sliced.sliced_wasserstein_distance(
+                    vwl_c1, vwl_c2,
+                    r_deg_distr, self.deg_distr_list[gcidx],
+                    n_projections=50, log=False,
+                ))
+                ot_dist_diag[dridx, dcidx] = sw_dist ** 2
                 wl_sim_diag[dridx, dcidx] = self.wl_inner_product(rvwl_np, cvwl_np)
 
             if is_diagonal:
@@ -212,13 +214,10 @@ class TopoWassersteinGraphKernel:
 
     def fit(
         self, dataset_info, graph_list, vlabel_list, edges_list, elabel_list, 
-        vtx_hierarchical_cycle_contexts_list, vtx_triangulated_neighbors_list, 
         deg_distr_list
     ):
         self._dataset_info = dataset_info
         self._nl, self._el = dataset_info['nl'], dataset_info['el']
-        self.vtx_hierarchical_cycle_contexts_list = vtx_hierarchical_cycle_contexts_list
-        self.vtx_triangulated_neighbors_list = vtx_triangulated_neighbors_list
         self.deg_distr_list = deg_distr_list
         self.node_neighs_list = [precomp_node_neighs(g) for g in graph_list]
         self.graph_list = graph_list
@@ -275,12 +274,10 @@ class TopoWassersteinGraphKernel:
     
     def fit_transform(
         self, dataset_info, graph_list, vlabel_list, edges_list, elabel_list, 
-        vtx_hierarchical_cycle_contexts_list, vtx_triangulated_neighbors_list, 
         deg_distr_list
     ):
         self.fit(
             dataset_info, graph_list, vlabel_list, edges_list, elabel_list, 
-            vtx_hierarchical_cycle_contexts_list, vtx_triangulated_neighbors_list, 
             deg_distr_list
         )
         return self.transform()

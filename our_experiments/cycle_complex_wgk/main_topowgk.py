@@ -27,43 +27,36 @@ def gauss_kernel(dist_np, gk_gamma):
 
 def train_and_eval_worker(
     dname, nu, tol, max_iter, alpha_list, gk_gamma, 
-    ot_sim_np, wl_sim_np, y, run_time, random_state = 42
+    ot_sim_np, wl_sim_np, y, run_time, random_state = 42,
+    n_wl_iters = None, n_csg_layers = None
 ):
     result_list = []
     
     indices = np.arange(len(y))
-    # 第一次 split：train_val (85%) 和 test (15%)
     train_val_idx, test_idx = train_test_split(
         indices, test_size=0.15, stratify=y, random_state=random_state
     )
-    # 第二次 split：train (70%) 和 val (15%)，基于 train_val
     train_idx, val_idx = train_test_split(
         train_val_idx, test_size=0.1765, stratify=y[train_val_idx], random_state=random_state
-    )  # 15/85 ≈ 0.1765
+    )
     
     y_test = y[test_idx]
     y_train_val = y[train_val_idx]
     
     for alpha in alpha_list:
         X = alpha * ot_sim_np + (1 - alpha) * wl_sim_np
-        # 构建 kernel 矩阵（恢复为对切片做 sanitize + max-abs 标准化）
         X_train_val = X[np.ix_(train_val_idx, train_val_idx)]
         X_test = X[np.ix_(test_idx, train_val_idx)]
-        # sanitize numeric issues: replace nan/inf, ensure float64
         X_train_val = np.array(np.nan_to_num(X_train_val, nan=0.0, posinf=1e12, neginf=-1e12), dtype=np.float64)
         X_test = np.array(np.nan_to_num(X_test, nan=0.0, posinf=1e12, neginf=-1e12), dtype=np.float64)
-        # normalize to avoid extremely large values causing solver instability
         max_abs = np.max(np.abs(X_train_val))
         if np.isfinite(max_abs) and max_abs > 0:
             X_train_val = X_train_val / max_abs
             X_test = X_test / max_abs
-        # add tiny jitter on diagonal for numerical stability
         X_train_val = X_train_val + np.eye(X_train_val.shape[0]) * 1e-8
         
-        # 超参数选择：使用 GridSearchCV 在 train_val 上搜索 svm_gamma
-        # 定义 PredefinedSplit：train 部分为 fold 0，val 部分为 -1（外部验证）
         test_fold = np.full(len(train_val_idx), 0)
-        test_fold[len(train_idx):] = -1  # val 部分标记为 -1
+        test_fold[len(train_idx):] = -1
         ps = PredefinedSplit(test_fold)
         
         num_cls = y_train_val.max() + 1
@@ -73,14 +66,13 @@ def train_and_eval_worker(
             decision_function_shape='ovo' if num_cls > 2 else 'ovr'
         )
         
-        # 1. 计算每个特征的方差及其平均值
         var_per_feature = np.var(X, axis=0, ddof=0)
         mean_var = np.mean(var_per_feature)
         if not np.isfinite(mean_var) or mean_var <= 0:
             mean_var = 1.0
         svm_gamma = 1 / (X.shape[1] * mean_var)
-        min_gamma = svm_gamma * 0.1  # 更小
-        max_gamma = svm_gamma * 10   # 更大
+        min_gamma = svm_gamma * 0.1
+        max_gamma = svm_gamma * 10
         param_grid = {
             'gamma': ['scale', 'auto'] + list(
                 np.logspace(
@@ -88,19 +80,16 @@ def train_and_eval_worker(
                 )
             )
         }
-        # 超参数选择：使用 GridSearchCV 在 train_val 上搜索 svm_gamma
-        # 定义 PredefinedSplit：train 部分为 fold 0，val 部分为 -1（外部验证）
         test_fold = np.full(len(train_val_idx), 0)
-        test_fold[len(train_idx):] = -1  # val 部分标记为 -1
+        test_fold[len(train_idx):] = -1
         ps = PredefinedSplit(test_fold)
         grid = GridSearchCV(
             clf, param_grid,
-            cv=ps, scoring='accuracy'  # 基于准确率选择最佳
+            cv=ps, scoring='accuracy'
         )
         grid.fit(X_train_val, y_train_val)
         best_svm_gamma = grid.best_params_['gamma']
         
-        # 最终评估：用最佳模型在 test 上评估（GridSearchCV 默认 refit 最佳模型）
         clf = grid.best_estimator_
         logits = clf.predict_proba(X_test)
         y_pred = logits.argmax(axis=1)
@@ -112,8 +101,7 @@ def train_and_eval_worker(
         else:
             roc_auc = float(roc_auc_score(y_test, logits[:, 1]))
         
-        # 记录结果
-        print(f'dname = {dname}, alpha = {round(alpha, 6)}, gk_gamma = {round(gk_gamma, 8)}, best_svm_gamma = {best_svm_gamma}, acc = {round(acc, 6)}, f1 = {round(f1, 6)}, roc_auc = {round(roc_auc, 6)}')
+        print(f'dname = {dname}, n_wl_iters = {n_wl_iters}, n_csg_layers = {n_csg_layers}, alpha = {round(alpha, 6)}, gk_gamma = {round(gk_gamma, 8)}, best_svm_gamma = {best_svm_gamma}, acc = {round(acc, 6)}, f1 = {round(f1, 6)}, roc_auc = {round(roc_auc, 6)}')
         result_list.append(
             (
                 round(alpha, 6), round(gk_gamma, 6), 
@@ -136,11 +124,11 @@ def _mp_worker_init(ot_sim_np, wl_sim_np, y, run_time):
     _GLOBAL_RUN_TIME = run_time
 
 def _train_worker_wrapper(args):
-    # args: (dname, nu, tol, max_iter, alpha_list, gk_gamma, random_state)
-    dname, nu, tol, max_iter, alpha_list, gk_gamma, random_state = args
+    dname, nu, tol, max_iter, alpha_list, gk_gamma, random_state, n_wl_iters, n_csg_layers = args
     return train_and_eval_worker(
         dname, nu, tol, max_iter, alpha_list, gk_gamma,
-        _GLOBAL_OT_SIM, _GLOBAL_WL_SIM, _GLOBAL_Y, _GLOBAL_RUN_TIME, random_state
+        _GLOBAL_OT_SIM, _GLOBAL_WL_SIM, _GLOBAL_Y, _GLOBAL_RUN_TIME, random_state,
+        n_wl_iters, n_csg_layers
     )
 
 def multiprocess_unit(train_and_eval_worker, args_list):
@@ -162,7 +150,7 @@ def multiprocess_unit(train_and_eval_worker, args_list):
         y = args_list[0][8]
         run_time = args_list[0][9]
         trimmed_args = [
-            (a[0], a[1], a[2], a[3], a[4], a[5], a[10]) for a in args_list
+            (a[0], a[1], a[2], a[3], a[4], a[5], a[10], a[11], a[12]) for a in args_list
         ]
         # spawn pool with initializer to set globals in workers
         nproc = get_recommended_nproc()
@@ -253,7 +241,8 @@ def main(
                 args_list.append(
                     (
                         dname, nu, tol, max_iter, alpha_list[alpha_start: alpha_end], 
-                        gk_gamma, ot_sim_np, wl_sim_np, y, run_time, random_state
+                        gk_gamma, ot_sim_np, wl_sim_np, y, run_time, random_state,
+                        n_wl_iters, n_csg_layers
                     )
                 )
             result_list = multiprocess_unit(train_and_eval_worker, args_list)
@@ -268,108 +257,108 @@ def main(
 
 if __name__ == '__main__':
     dname_params = {
-        'IMDB-MULTI': \
-            {
-                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.1, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
-                'gk_gamma_list': np.logspace(-4, -3, num = 10, base = 10.0)
-            }, 
-        'DHFR_MD': \
-            {
-                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
-                'gk_gamma_list': np.logspace(-4, -3, num = 10, base = 10.0)
-            }, 
-        'DHFR': \
-            {
-                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.1, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
-                'gk_gamma_list': np.logspace(-4, -2, num = 10, base = 10.0)
-            }, 
-        'ER_MD': \
-            {
-                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
-                'gk_gamma_list': np.logspace(-4, -2, num = 10, base = 10.0)
-            }, 
-        'BZR_MD': \
-            {
-                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
-                'gk_gamma_list': np.logspace(-3, -2, num = 10, base = 10.0), 
-            }, 
-        'IMDB-BINARY': \
-            {
-                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
-                'gk_gamma_list': np.logspace(-5, -3, num = 10, base = 10.0), 
-            }, 
-        'ENZYMES': \
-            {
-                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.01, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
-                'gk_gamma_list': np.logspace(-4, -3, num = 10, base = 10.0), 
-            }, 
-        'COX2': 
-            {
-                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 256, 
-                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
-                'gk_gamma_list': np.logspace(-5, -3, num = 10, base = 10.0), 
-            }, 
-        'PROTEINS': 
-            {
-                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.08, 'random_state': 3407,
-                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
-                'gk_gamma_list': np.logspace(-7, -3, num = 10, base = 10.0), 
-            }, 
-        'Mutagenicity': 
-            {
-                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
-                'gk_gamma_list': np.logspace(-4, -3, num = 10, base = 10.0)
-            },
+        # 'IMDB-MULTI': \
+        #     {
+        #         'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.1, 'random_state': 42, 
+        #         'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+        #         'gk_gamma_list': np.logspace(-4, -3, num = 10, base = 10.0)
+        #     }, 
+        # 'DHFR_MD': \
+        #     {
+        #         'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 42, 
+        #         'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+        #         'gk_gamma_list': np.logspace(-4, -3, num = 10, base = 10.0)
+        #     }, 
+        # 'DHFR': \
+        #     {
+        #         'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.1, 'random_state': 42, 
+        #         'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+        #         'gk_gamma_list': np.logspace(-4, -2, num = 10, base = 10.0)
+        #     }, 
+        # 'ER_MD': \
+        #     {
+        #         'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 42, 
+        #         'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+        #         'gk_gamma_list': np.logspace(-4, -2, num = 10, base = 10.0)
+        #     }, 
+        # 'BZR_MD': \
+        #     {
+        #         'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 42, 
+        #         'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+        #         'gk_gamma_list': np.logspace(-3, -2, num = 10, base = 10.0), 
+        #     }, 
+        # 'IMDB-BINARY': \
+        #     {
+        #         'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 42, 
+        #         'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+        #         'gk_gamma_list': np.logspace(-5, -3, num = 10, base = 10.0), 
+        #     }, 
+        # 'ENZYMES': \
+        #     {
+        #         'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.01, 'random_state': 42, 
+        #         'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+        #         'gk_gamma_list': np.logspace(-4, -3, num = 10, base = 10.0), 
+        #     }, 
+        # 'COX2': 
+        #     {
+        #         'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 256, 
+        #         'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+        #         'gk_gamma_list': np.logspace(-5, -3, num = 10, base = 10.0), 
+        #     }, 
+        # 'PROTEINS': 
+        #     {
+        #         'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.08, 'random_state': 3407,
+        #         'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+        #         'gk_gamma_list': np.logspace(-7, -3, num = 10, base = 10.0), 
+        #     }, 
+        # 'Mutagenicity': 
+        #     {
+        #         'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 42, 
+        #         'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+        #         'gk_gamma_list': np.logspace(-4, -3, num = 10, base = 10.0)
+        #     },
         'MUTAG':
             {
                 'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 42, 
                 'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
                 'gk_gamma_list': np.logspace(-4, -3, num = 10, base = 10.0)
             },
-        'NCI1': 
-            {
-                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.03, 'random_state': 3407, 
-                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
-                'gk_gamma_list': np.logspace(-6, -3, num = 10, base = 10.0), 
-            }, 
-        'NCI109': 
-            {
-                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.01, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
-                'gk_gamma_list': np.logspace(-6, -3, num = 10, base = 10.0), 
-            },  
-        'BZR': \
-            {
-                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.1, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
-                'gk_gamma_list': np.logspace(-4, -2, num = 10, base = 10.0), 
-            }, 
-        'MSRC_21': \
-            {
-                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.03, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
-                'gk_gamma_list': np.logspace(-4, -3, num = 10, base = 10.0)
-            }, 
-        'MSRC_9': \
-            {
-                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.08, 'random_state': 3407, 
-                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
-                'gk_gamma_list': np.logspace(-5, -2, num = 10, base = 10.0)
-            }, 
-        'COX2_MD': \
-            {
-                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
-                'gk_gamma_list': np.logspace(-4, -3, num = 10, base = 10.0)
-            }, 
+        # 'NCI1': 
+        #     {
+        #         'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.03, 'random_state': 3407, 
+        #         'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+        #         'gk_gamma_list': np.logspace(-6, -3, num = 10, base = 10.0), 
+        #     }, 
+        # 'NCI109': 
+        #     {
+        #         'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.01, 'random_state': 42, 
+        #         'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+        #         'gk_gamma_list': np.logspace(-6, -3, num = 10, base = 10.0), 
+        #     },  
+        # 'BZR': \
+        #     {
+        #         'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.1, 'random_state': 42, 
+        #         'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+        #         'gk_gamma_list': np.logspace(-4, -2, num = 10, base = 10.0), 
+        #     }, 
+        # 'MSRC_21': \
+        #     {
+        #         'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.03, 'random_state': 42, 
+        #         'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+        #         'gk_gamma_list': np.logspace(-4, -3, num = 10, base = 10.0)
+        #     }, 
+        # 'MSRC_9': \
+        #     {
+        #         'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.08, 'random_state': 3407, 
+        #         'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+        #         'gk_gamma_list': np.logspace(-5, -2, num = 10, base = 10.0)
+        #     }, 
+        # 'COX2_MD': \
+        #     {
+        #         'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 42, 
+        #         'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+        #         'gk_gamma_list': np.logspace(-4, -3, num = 10, base = 10.0)
+        #     }, 
     }    
     
     dname_baseline = {

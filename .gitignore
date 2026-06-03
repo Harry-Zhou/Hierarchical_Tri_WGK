@@ -18,6 +18,11 @@ var/
 wheels/
 *.egg-info/
 .installed.cfg
+
+# Experiment outputs
+our_experiments/**/topowgk_outputs/
+our_experiments/**/outputs/
+topowgk_outputs/
 *.egg
 MANIFEST
 

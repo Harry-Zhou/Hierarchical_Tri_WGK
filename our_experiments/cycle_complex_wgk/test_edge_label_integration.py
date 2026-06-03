@@ -108,10 +108,10 @@ def test_kernel_node_only():
     graphs, vlabels, edges_list, elabels_list, \
         deg_distr_list, vtx_hcc_list, vtx_tn_list = _make_path3_graphs()
 
-    # Test with niter_hcc=0 (K=0, TN path)
+    # Test with n_csg_layers=0 (K=0, TN path)
     g_info = {'el': False, 'nl': True}
     kernel = TopoWassersteinGraphKernel(
-        niter_tn=2, niter_hcc=0, wl_normalized=False,
+        n_wl_iters=2, n_csg_layers=0, wl_normalized=False,
     )
     kernel.fit(g_info, graphs, vlabels, edges_list, elabels_list,
                vtx_hcc_list, vtx_tn_list, deg_distr_list)
@@ -121,9 +121,9 @@ def test_kernel_node_only():
         "Node-only K=0: identical graphs should have zero OT distance"
     print("[PASS] Kernel node-only K=0 produces correct full matrix")
 
-    # Test with niter_hcc=1 (K=1, CSG path)
+    # Test with n_csg_layers=1 (K=1, CSG path)
     kernel2 = TopoWassersteinGraphKernel(
-        niter_tn=2, niter_hcc=1, wl_normalized=False,
+        n_wl_iters=2, n_csg_layers=1, wl_normalized=False,
     )
     kernel2.fit(g_info, graphs, vlabels, edges_list, elabels_list,
                 vtx_hcc_list, vtx_tn_list, deg_distr_list)
@@ -140,9 +140,9 @@ def test_kernel_edge_label():
 
     g_info = {'el': True, 'nl': True}
 
-    # --- Test with niter_hcc=0 (K=0, TN edge WL) ---
+    # --- Test with n_csg_layers=0 (K=0, TN edge WL) ---
     kernel = TopoWassersteinGraphKernel(
-        niter_tn=2, niter_hcc=0, wl_normalized=False,
+        n_wl_iters=2, n_csg_layers=0, wl_normalized=False,
     )
     kernel.fit(g_info, graphs, vlabels, edges_list, elabels_list,
                vtx_hcc_list, vtx_tn_list, deg_distr_list)
@@ -156,9 +156,9 @@ def test_kernel_edge_label():
         "G0 and G2 (same edge labels) should have zero OT distance (K=0)"
     print("[PASS] Kernel edge-label K=0 distinguishes by edge labels")
 
-    # --- Test with niter_hcc=1 (K=1, CSG edge WL) ---
+    # --- Test with n_csg_layers=1 (K=1, CSG edge WL) ---
     kernel2 = TopoWassersteinGraphKernel(
-        niter_tn=2, niter_hcc=1, wl_normalized=False,
+        n_wl_iters=2, n_csg_layers=1, wl_normalized=False,
     )
     kernel2.fit(g_info, graphs, vlabels, edges_list, elabels_list,
                 vtx_hcc_list, vtx_tn_list, deg_distr_list)
@@ -183,7 +183,7 @@ def test_full_matrix_comparison():
     # Edge-label kernel
     g_info_el = {'el': True, 'nl': True}
     kernel_el = TopoWassersteinGraphKernel(
-        niter_tn=2, niter_hcc=1, wl_normalized=False,
+        n_wl_iters=2, n_csg_layers=1, wl_normalized=False,
     )
     kernel_el.fit(g_info_el, graphs, vlabels, edges_list, elabels_list,
                   vtx_hcc_list, vtx_tn_list, deg_distr_list)
@@ -192,7 +192,7 @@ def test_full_matrix_comparison():
     # Same graphs, node-only
     g_info_noel = {'el': False, 'nl': True}
     kernel_noel = TopoWassersteinGraphKernel(
-        niter_tn=2, niter_hcc=1, wl_normalized=False,
+        n_wl_iters=2, n_csg_layers=1, wl_normalized=False,
     )
     kernel_noel.fit(
         g_info_noel, graphs, vlabels, edges_list, elabels_list,
@@ -245,7 +245,7 @@ def test_g_info_pass_through():
     # Test with g_info['el']=True (all 3 graphs have same edge labels)
     g_info_el = {'el': True, 'nl': True}
     kernel_el = TopoWassersteinGraphKernel(
-        niter_tn=2, niter_hcc=1, wl_normalized=False,
+        n_wl_iters=2, n_csg_layers=1, wl_normalized=False,
     )
     kernel_el.fit(g_info_el, graphs, vlabels, edges_list, elabels,
                   vtx_hcc_list, vtx_tn_list, deg_distr_list)

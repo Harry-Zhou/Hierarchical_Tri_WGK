@@ -68,7 +68,7 @@ def test_graph_isomorphism(graph1_path, graph2_path):
     vtx_triangulated_neighbors_list = [vtx_tri1, vtx_tri2]
     deg_distr_list = [deg_distr1, deg_distr2]
     
-    topo_wgk = TopoWassersteinGraphKernel(niter_tn=3, niter_hcc=3, wl_normalized=True)
+    topo_wgk = TopoWassersteinGraphKernel(n_wl_iters=3, n_csg_layers=3, wl_normalized=True)
     
     ot_dist_np, wl_sim_np, run_time = topo_wgk.fit_transform(
         dataset_info, graph_list, vlabel_list, edges_list, elabel_list,

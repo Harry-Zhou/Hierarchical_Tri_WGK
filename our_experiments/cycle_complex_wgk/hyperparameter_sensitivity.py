@@ -43,9 +43,9 @@ def parse_filename(filename):
     elif filename.startswith('profile_gk_gamma_'):
         param_type = 'gk_gamma'
         dataset = filename.replace('profile_gk_gamma_', '').replace('_svm_results.csv', '')
-    elif filename.startswith('profile_niter_hcc_'):
-        param_type = 'niter_hcc'
-        dataset = filename.replace('profile_niter_hcc_', '').replace('_svm_results.csv', '')
+    elif filename.startswith('profile_n_csg_layers_'):
+        param_type = 'n_csg_layers'
+        dataset = filename.replace('profile_n_csg_layers_', '').replace('_svm_results.csv', '')
     else:
         return None, None
     return param_type, dataset
@@ -55,7 +55,7 @@ def load_and_organize_data():
     data = {
         'alpha': {},
         'gk_gamma': {},
-        'niter_hcc': {}
+        'n_csg_layers': {}
     }
     
     # Get all profile files
@@ -74,8 +74,8 @@ def load_and_organize_data():
             param_col = 'alpha'
         elif param_type == 'gk_gamma':
             param_col = 'gk_gamma'
-        elif param_type == 'niter_hcc':
-            param_col = 'niter_hcc'
+        elif param_type == 'n_csg_layers':
+            param_col = 'n_csg_layers'
         
         # Group by the parameter column and calculate mean for each metric
         # This handles cases where multiple rows have the same parameter value
@@ -104,7 +104,7 @@ def plot_hyperparameter_sensitivity(data, param_type, datasets=None, is_appendix
     PARAM_SYMBOLS = {
         'alpha': r'$\beta$',
         'gk_gamma': r'$\gamma$',
-        'niter_hcc': r'$N_{hcc}$'
+        'n_csg_layers': r'$N_{hcc}$'
     }
     
     # Get list of datasets to plot
@@ -134,8 +134,8 @@ def plot_hyperparameter_sensitivity(data, param_type, datasets=None, is_appendix
         param_col = 'alpha'
     elif param_type == 'gk_gamma':
         param_col = 'gk_gamma'
-    elif param_type == 'niter_hcc':
-        param_col = 'niter_hcc'
+    elif param_type == 'n_csg_layers':
+        param_col = 'n_csg_layers'
     
     # Plot each dataset
     for i, dataset in enumerate(datasets):
@@ -202,8 +202,8 @@ def save_data_to_csv(data, param_type, datasets=None, is_appendix=False):
         param_col = 'alpha'
     elif param_type == 'gk_gamma':
         param_col = 'gk_gamma'
-    elif param_type == 'niter_hcc':
-        param_col = 'niter_hcc'
+    elif param_type == 'n_csg_layers':
+        param_col = 'n_csg_layers'
     
     # Get list of datasets to save
     if datasets is None:
@@ -247,14 +247,14 @@ def main():
     data = load_and_organize_data()
     
     # Print summary
-    for param_type in ['alpha', 'gk_gamma', 'niter_hcc']:
+    for param_type in ['alpha', 'gk_gamma', 'n_csg_layers']:
         print(f"\n{param_type.upper()}: {len(data[param_type])} datasets")
         print(f"  Datasets: {', '.join(sorted(data[param_type].keys()))}")
     
     print("\nSaving data to CSV...")
     
     # Save data to CSV for each hyperparameter type and section
-    for param_type in ['alpha', 'gk_gamma', 'niter_hcc']:
+    for param_type in ['alpha', 'gk_gamma', 'n_csg_layers']:
         all_datasets = list(data[param_type].keys())
         main_datasets = [ds for ds in all_datasets if ds not in APPENDIX_DATASETS]
         supp_datasets = [ds for ds in all_datasets if ds in APPENDIX_DATASETS]
@@ -270,7 +270,7 @@ def main():
     print("\nGenerating plots...")
     
     # Generate plots for each hyperparameter type and section
-    for param_type in ['alpha', 'gk_gamma', 'niter_hcc']:
+    for param_type in ['alpha', 'gk_gamma', 'n_csg_layers']:
         all_datasets = list(data[param_type].keys())
         main_datasets = [ds for ds in all_datasets if ds not in APPENDIX_DATASETS]
         supp_datasets = [ds for ds in all_datasets if ds in APPENDIX_DATASETS]

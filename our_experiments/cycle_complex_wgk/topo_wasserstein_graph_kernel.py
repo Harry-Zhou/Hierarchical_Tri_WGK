@@ -27,16 +27,16 @@ _GLOBAL_VLABEL_LIST = None
 _GLOBAL_EDGES_LIST = None
 _GLOBAL_ELABEL_LIST = None
 _GLOBAL_DATASET_INFO = None
-_GLOBAL_NITER_TN = None
-_GLOBAL_NITER_HCC = None
+_GLOBAL_N_WL_ITERS = None
+_GLOBAL_N_CSG_LAYERS = None
 _GLOBAL_GRAPH_LIST = None
 
 def _worker_init(deg_distr_list, node_neighs_list,
-                 vlabel_list, edges_list, elabel_list, dataset_info, niter_tn, niter_hcc,
+                 vlabel_list, edges_list, elabel_list, dataset_info, n_wl_iters, n_csg_layers,
                  graph_list):
     global _GLOBAL_DEG_DISTR, _GLOBAL_NODE_NEIGHS
     global _GLOBAL_VLABEL_LIST, _GLOBAL_EDGES_LIST, _GLOBAL_ELABEL_LIST
-    global _GLOBAL_DATASET_INFO, _GLOBAL_NITER_TN, _GLOBAL_NITER_HCC
+    global _GLOBAL_DATASET_INFO, _GLOBAL_N_WL_ITERS, _GLOBAL_N_CSG_LAYERS
     global _GLOBAL_GRAPH_LIST
     _GLOBAL_DEG_DISTR = deg_distr_list
     _GLOBAL_NODE_NEIGHS = node_neighs_list
@@ -44,8 +44,8 @@ def _worker_init(deg_distr_list, node_neighs_list,
     _GLOBAL_EDGES_LIST = edges_list
     _GLOBAL_ELABEL_LIST = elabel_list
     _GLOBAL_DATASET_INFO = dataset_info
-    _GLOBAL_NITER_TN = niter_tn
-    _GLOBAL_NITER_HCC = niter_hcc
+    _GLOBAL_N_WL_ITERS = n_wl_iters
+    _GLOBAL_N_CSG_LAYERS = n_csg_layers
     _GLOBAL_GRAPH_LIST = graph_list
 
 def _compute_block_worker(block):
@@ -57,7 +57,7 @@ def _compute_block_worker(block):
         and _GLOBAL_VLABEL_LIST is not None and _GLOBAL_EDGES_LIST is not None
         and _GLOBAL_ELABEL_LIST is not None
         and _GLOBAL_DATASET_INFO is not None
-        and _GLOBAL_NITER_TN is not None and _GLOBAL_NITER_HCC is not None
+        and _GLOBAL_N_WL_ITERS is not None and _GLOBAL_N_CSG_LAYERS is not None
         and _GLOBAL_GRAPH_LIST is not None
     ), "Worker globals not initialized; _worker_init must run before _compute_block_worker"
     _g_info = _GLOBAL_DATASET_INFO
@@ -82,7 +82,7 @@ def _compute_block_worker(block):
             ed1, ed2 = None, None
         return hierarchical_triangular_wl_unified(
             _g_info, G1, G2, rv, cv, ed1, ed2,
-            K=_GLOBAL_NITER_HCC, I=_GLOBAL_NITER_TN,
+            K=_GLOBAL_N_CSG_LAYERS, I=_GLOBAL_N_WL_ITERS,
         )
 
     def _wl_counter(node_neighs, vwl_np, vmax_label):
@@ -124,9 +124,9 @@ def _compute_block_worker(block):
     return (start_ridx, end_ridx, start_cidx, end_cidx, ot_dist_diag, wl_sim_diag)
 
 class TopoWassersteinGraphKernel:
-    def __init__(self, niter_tn, niter_hcc, wl_normalized = True):
-        self._niter_tn = niter_tn
-        self._niter_hcc = niter_hcc
+    def __init__(self, n_wl_iters=3, n_csg_layers=1, wl_normalized=True):
+        self._n_wl_iters = n_wl_iters
+        self._n_csg_layers = n_csg_layers
         self._wl_normalized = wl_normalized
     
     @staticmethod
@@ -178,7 +178,7 @@ class TopoWassersteinGraphKernel:
             ed1, ed2 = None, None
         return hierarchical_triangular_wl_unified(
             self._dataset_info, G1, G2, rv, cv, ed1, ed2,
-            K=self._niter_hcc, I=self._niter_tn,
+            K=self._n_csg_layers, I=self._n_wl_iters,
         )
 
     def _otdist_wlsim_worker(self, start_ridx, end_ridx, start_cidx, end_cidx):
@@ -249,8 +249,8 @@ class TopoWassersteinGraphKernel:
                 self.edges_list,
                 self.elabel_list,
                 self._dataset_info,
-                self._niter_tn,
-                self._niter_hcc,
+                self._n_wl_iters,
+                self._n_csg_layers,
                 self.graph_list,
             )
         )

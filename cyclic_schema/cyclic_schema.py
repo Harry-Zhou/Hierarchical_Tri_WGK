@@ -80,8 +80,11 @@ def _canonicalize_cycle(cycle: Sequence) -> Tuple:
     rev_min_idx = rev_nodes.index(rev_min_node)
     backward = tuple(rev_nodes[rev_min_idx:] + rev_nodes[:rev_min_idx])
 
-    # Choose the direction with the smaller tuple
-    return forward if forward <= backward else backward
+    # Choose the direction with the smaller tuple (compare via node_sort_key
+    # to handle mixed int/str types in multi-layer CSG)
+    forward_key = tuple(node_sort_key(n) for n in forward)
+    backward_key = tuple(node_sort_key(n) for n in backward)
+    return forward if forward_key <= backward_key else backward
 
 
 def get_cycle_edges(cycle):

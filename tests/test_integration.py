@@ -216,7 +216,7 @@ class TestFullKernelPipeline:
     def test_kernel_produces_valid_matrix(self, three_graphs):
         dataset_info = {'nl': True, 'el': False}
         kernel = TopoWassersteinGraphKernel(
-            niter_tn=2, niter_hcc=2, wl_normalized=True)
+            n_wl_iters=2, n_csg_layers=2, wl_normalized=True)
         ot_dist, wl_sim, runtime = kernel.fit_transform(
             dataset_info,
             three_graphs['graph_list'],
@@ -235,7 +235,7 @@ class TestFullKernelPipeline:
         """Triangle(0) should be closer to itself than to path3(1)."""
         dataset_info = {'nl': True, 'el': False}
         kernel = TopoWassersteinGraphKernel(
-            niter_tn=2, niter_hcc=2, wl_normalized=True)
+            n_wl_iters=2, n_csg_layers=2, wl_normalized=True)
         ot_dist, _, _ = kernel.fit_transform(
             dataset_info,
             three_graphs['graph_list'],
@@ -253,8 +253,8 @@ class TestFullKernelPipeline:
     def test_multiple_fits_produce_consistent_results(self, three_graphs):
         """Same input with same params → same output (deterministic)."""
         dataset_info = {'nl': True, 'el': False}
-        k1 = TopoWassersteinGraphKernel(niter_tn=2, niter_hcc=2, wl_normalized=True)
-        k2 = TopoWassersteinGraphKernel(niter_tn=2, niter_hcc=2, wl_normalized=True)
+        k1 = TopoWassersteinGraphKernel(n_wl_iters=2, n_csg_layers=2, wl_normalized=True)
+        k2 = TopoWassersteinGraphKernel(n_wl_iters=2, n_csg_layers=2, wl_normalized=True)
 
         ot1, wl1, _ = k1.fit_transform(
             dataset_info,
@@ -291,7 +291,7 @@ class TestEdgeLabelKernelPipeline:
 
         dataset_info = {'nl': True, 'el': True}
         kernel = TopoWassersteinGraphKernel(
-            niter_tn=1, niter_hcc=1, wl_normalized=False)
+            n_wl_iters=1, n_csg_layers=1, wl_normalized=False)
 
         ot_dist, wl_sim, _ = kernel.fit_transform(
             dataset_info,

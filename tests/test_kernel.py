@@ -60,16 +60,16 @@ class TestKernelInitialization:
     """Kernel construction and parameter handling."""
 
     def test_default_params(self):
-        kernel = TopoWassersteinGraphKernel(niter_tn=3, niter_hcc=3)
-        assert kernel._niter_tn == 3
-        assert kernel._niter_hcc == 3
+        kernel = TopoWassersteinGraphKernel(n_wl_iters=3, n_csg_layers=3)
+        assert kernel._n_wl_iters == 3
+        assert kernel._n_csg_layers == 3
         assert kernel._wl_normalized is True
 
     def test_custom_params(self):
         kernel = TopoWassersteinGraphKernel(
-            niter_tn=5, niter_hcc=7, wl_normalized=False)
-        assert kernel._niter_tn == 5
-        assert kernel._niter_hcc == 7
+            n_wl_iters=5, n_csg_layers=7, wl_normalized=False)
+        assert kernel._n_wl_iters == 5
+        assert kernel._n_csg_layers == 7
         assert kernel._wl_normalized is False
 
 
@@ -102,7 +102,7 @@ class TestKernelFitTransform:
     def test_fit_transform_returns_correct_shape(self):
         data = self._make_two_graphs()
         kernel = TopoWassersteinGraphKernel(
-            niter_tn=1, niter_hcc=1, wl_normalized=True)
+            n_wl_iters=1, n_csg_layers=1, wl_normalized=True)
         ot_dist, wl_sim, runtime = kernel.fit_transform(
             data['dataset_info'], data['graph_list'],
             data['vlabel_list'], data['edges_list'],
@@ -115,7 +115,7 @@ class TestKernelFitTransform:
     def test_symmetric_ot_distance(self):
         data = self._make_two_graphs()
         kernel = TopoWassersteinGraphKernel(
-            niter_tn=1, niter_hcc=1, wl_normalized=True)
+            n_wl_iters=1, n_csg_layers=1, wl_normalized=True)
         ot_dist, _, _ = kernel.fit_transform(
             data['dataset_info'], data['graph_list'],
             data['vlabel_list'], data['edges_list'],
@@ -127,7 +127,7 @@ class TestKernelFitTransform:
         """OT distance on diagonal (graph vs itself) should be ~0."""
         data = self._make_two_graphs()
         kernel = TopoWassersteinGraphKernel(
-            niter_tn=1, niter_hcc=1, wl_normalized=True)
+            n_wl_iters=1, n_csg_layers=1, wl_normalized=True)
         ot_dist, _, _ = kernel.fit_transform(
             data['dataset_info'], data['graph_list'],
             data['vlabel_list'], data['edges_list'],
@@ -139,7 +139,7 @@ class TestKernelFitTransform:
         """WL similarity on diagonal should be > 0."""
         data = self._make_two_graphs()
         kernel = TopoWassersteinGraphKernel(
-            niter_tn=1, niter_hcc=1, wl_normalized=True)
+            n_wl_iters=1, n_csg_layers=1, wl_normalized=True)
         _, wl_sim, _ = kernel.fit_transform(
             data['dataset_info'], data['graph_list'],
             data['vlabel_list'], data['edges_list'],
@@ -151,14 +151,14 @@ class TestKernelFitTransform:
         """Explicit fit + transform should match fit_transform."""
         data = self._make_two_graphs()
         kernel = TopoWassersteinGraphKernel(
-            niter_tn=1, niter_hcc=1, wl_normalized=True)
+            n_wl_iters=1, n_csg_layers=1, wl_normalized=True)
         ot_ft, wl_ft, _ = kernel.fit_transform(
             data['dataset_info'], data['graph_list'],
             data['vlabel_list'], data['edges_list'],
             data['elabel_list'], data['deg_distr_list'],
         )
         kernel2 = TopoWassersteinGraphKernel(
-            niter_tn=1, niter_hcc=1, wl_normalized=True)
+            n_wl_iters=1, n_csg_layers=1, wl_normalized=True)
         kernel2.fit(
             data['dataset_info'], data['graph_list'],
             data['vlabel_list'], data['edges_list'],
@@ -174,7 +174,7 @@ class TestKernelFitTransform:
 
         # Node-only mode
         kernel_node = TopoWassersteinGraphKernel(
-            niter_tn=1, niter_hcc=1, wl_normalized=False)
+            n_wl_iters=1, n_csg_layers=1, wl_normalized=False)
         ot_node, wl_node, _ = kernel_node.fit_transform(
             data['dataset_info'], data['graph_list'],
             data['vlabel_list'], data['edges_list'],
@@ -190,7 +190,7 @@ class TestKernelFitTransform:
             np.array([10, 10]),
         ]
         kernel_el = TopoWassersteinGraphKernel(
-            niter_tn=1, niter_hcc=1, wl_normalized=False)
+            n_wl_iters=1, n_csg_layers=1, wl_normalized=False)
         ot_el, wl_el, _ = kernel_el.fit_transform(
             data_el['dataset_info'], data_el['graph_list'],
             data_el['vlabel_list'], data_el['edges_list'],

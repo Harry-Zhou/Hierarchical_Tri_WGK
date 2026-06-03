@@ -213,29 +213,15 @@ def compute_svm_statistics(all_results):
 
 # 多进程
 def main(
-    dataset_dict, niter_tn, niter_hcc, nu, alpha_list, tol, 
+    dataset_dict, n_wl_iters, n_csg_layers, nu, alpha_list, tol, 
     gk_gamma_list, max_iter, n_repeats=10, random_state_base=42
 ):
     dname = dataset_dict['dname']
-    result_base_dir = os.path.join(
-        '.', 'our_experiments', 'cycle_complex_wgk', 'topowgk_outputs'
-    )
-    fout = open(
-        os.path.join(result_base_dir, f'{dname}_svm_result_niter_tn_hcc_({niter_tn}_{niter_hcc}).csv'), 
-        'w', encoding = 'utf-8', newline = ''
-    )
-    csv_writer = csv.writer(fout)
-    csv_writer.writerow(
-        [
-            'alpha', 'gk_gamma', 'acc', 'acc_std', 'f1_score', 'f1_score_std', 
-            'roc_auc_score', 'roc_auc_score_std', 'run_time'
-        ]
-    )
     
     # Cache logic for ot_dist_np, wl_sim_np, run_time
     cache_dir = os.path.join(os.path.join('.', 'our_experiments'), 'cache')
     os.makedirs(cache_dir, exist_ok=True)
-    cache_file = os.path.join(cache_dir, f'{dname}_niter_tn_{niter_tn}_niter_hcc_{niter_hcc}.pkl')
+    cache_file = os.path.join(cache_dir, f'{dname}_n_wl_iters_{n_wl_iters}_n_csg_layers_{n_csg_layers}.pkl')
     
     if os.path.exists(cache_file):
         print(f"Loading cached results from {cache_file}")
@@ -245,8 +231,8 @@ def main(
         graph_list, vlabel_list, edges_list, elabel_list, deg_distr_list, y \
             = construct_dataset(dataset_dict)
 
-        print(f"Computing results for {dname} with niter_tn={niter_tn}, niter_hcc={niter_hcc}")
-        cyc_wl_gk = TopoWassersteinGraphKernel(niter_tn, niter_hcc, wl_normalized = True)
+        print(f"Computing results for {dname} with n_wl_iters={n_wl_iters}, n_csg_layers={n_csg_layers}")
+        cyc_wl_gk = TopoWassersteinGraphKernel(n_wl_iters, n_csg_layers, wl_normalized = True)
         ot_dist_np, wl_sim_np, run_time = cyc_wl_gk.fit_transform(
             dataset_dict['dataset_info'], graph_list, vlabel_list, edges_list, elabel_list, 
             deg_distr_list
@@ -276,115 +262,113 @@ def main(
     # 计算统计量
     result = compute_svm_statistics(all_results)
     
-    # 保存结果
-    for _, row in result.iterrows():
-        csv_writer.writerow([
-            round(float(row['alpha']), 6), round(float(row['gk_gamma']), 6),
-            round(float(row['acc']), 4), round(float(row['acc_std']), 4),
-            round(float(row['f1_score']), 4), round(float(row['f1_score_std']), 4),
-            round(float(row['roc_auc_score']), 4), round(float(row['roc_auc_score_std']), 4),
-            round(float(row['run_time']), 4)
-        ])
-    fout.flush()
-    fout.close()
+    result['n_wl_iters'] = n_wl_iters
+    result['n_csg_layers'] = n_csg_layers
+    return result
 
 if __name__ == '__main__':
     dname_params = {
         'IMDB-MULTI': \
             {
-                'niter_tn': 3, 'niter_hcc': 3, 'nu': 0.1, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 15, base = 10.0), 
-                'gk_gamma_list': np.logspace(-4, -3, num = 20, base = 10.0)
+                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.1, 'random_state': 42, 
+                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+                'gk_gamma_list': np.logspace(-4, -3, num = 10, base = 10.0)
             }, 
         'DHFR_MD': \
             {
-                'niter_tn': 3, 'niter_hcc': 3, 'nu': 0.05, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 15, base = 10.0), 
-                'gk_gamma_list': np.logspace(-4, -3, num = 20, base = 10.0)
+                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 42, 
+                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+                'gk_gamma_list': np.logspace(-4, -3, num = 10, base = 10.0)
             }, 
         'DHFR': \
             {
-                'niter_tn': 3, 'niter_hcc': 3, 'nu': 0.1, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 15, base = 10.0), 
-                'gk_gamma_list': np.logspace(-4, -2, num = 20, base = 10.0)
+                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.1, 'random_state': 42, 
+                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+                'gk_gamma_list': np.logspace(-4, -2, num = 10, base = 10.0)
             }, 
         'ER_MD': \
             {
-                'niter_tn': 3, 'niter_hcc': 3, 'nu': 0.05, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 15, base = 10.0), 
-                'gk_gamma_list': np.logspace(-4, -2, num = 20, base = 10.0)
+                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 42, 
+                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+                'gk_gamma_list': np.logspace(-4, -2, num = 10, base = 10.0)
             }, 
         'BZR_MD': \
             {
-                'niter_tn': 3, 'niter_hcc': 3, 'nu': 0.05, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 15, base = 10.0), 
-                'gk_gamma_list': np.logspace(-3, -2, num = 20, base = 10.0), 
+                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 42, 
+                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+                'gk_gamma_list': np.logspace(-3, -2, num = 10, base = 10.0), 
             }, 
         'IMDB-BINARY': \
             {
-                'niter_tn': 3, 'niter_hcc': 3, 'nu': 0.05, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 15, base = 10.0), 
-                'gk_gamma_list': np.logspace(-5, -3, num = 20, base = 10.0), 
+                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 42, 
+                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+                'gk_gamma_list': np.logspace(-5, -3, num = 10, base = 10.0), 
             }, 
         'ENZYMES': \
             {
-                'niter_tn': 3, 'niter_hcc': 3, 'nu': 0.01, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 15, base = 10.0), 
-                'gk_gamma_list': np.logspace(-4, -3, num = 20, base = 10.0), 
+                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.01, 'random_state': 42, 
+                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+                'gk_gamma_list': np.logspace(-4, -3, num = 10, base = 10.0), 
             }, 
         'COX2': 
             {
-                'niter_tn': 3, 'niter_hcc': 3, 'nu': 0.05, 'random_state': 256, 
-                'alpha_list': np.logspace(-2, 0, num = 15, base = 10.0), 
-                'gk_gamma_list': np.logspace(-5, -3, num = 20, base = 10.0), 
+                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 256, 
+                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+                'gk_gamma_list': np.logspace(-5, -3, num = 10, base = 10.0), 
             }, 
         'PROTEINS': 
             {
-                'niter_tn': 3, 'niter_hcc': 5, 'nu': 0.08, 'random_state': 3407,
-                'alpha_list': np.logspace(-2, 0, num = 15, base = 10.0), 
-                'gk_gamma_list': np.logspace(-7, -3, num = 100, base = 10.0), 
+                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.08, 'random_state': 3407,
+                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+                'gk_gamma_list': np.logspace(-7, -3, num = 10, base = 10.0), 
             }, 
         'Mutagenicity': 
             {
-                'niter_tn': 3, 'niter_hcc': 3, 'nu': 0.05, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 15, base = 10.0), 
-                'gk_gamma_list': np.logspace(-4, -3, num = 20, base = 10.0)
+                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 42, 
+                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+                'gk_gamma_list': np.logspace(-4, -3, num = 10, base = 10.0)
+            },
+        'MUTAG':
+            {
+                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 42, 
+                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+                'gk_gamma_list': np.logspace(-4, -3, num = 10, base = 10.0)
             },
         'NCI1': 
             {
-                'niter_tn': 3, 'niter_hcc': 3, 'nu': 0.03, 'random_state': 3407, 
-                'alpha_list': np.logspace(-2, 0, num = 15, base = 10.0), 
-                'gk_gamma_list': np.logspace(-6, -3, num = 20, base = 10.0), 
+                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.03, 'random_state': 3407, 
+                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+                'gk_gamma_list': np.logspace(-6, -3, num = 10, base = 10.0), 
             }, 
         'NCI109': 
             {
-                'niter_tn': 3, 'niter_hcc': 3, 'nu': 0.01, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 15, base = 10.0), 
-                'gk_gamma_list': np.logspace(-6, -3, num = 20, base = 10.0), 
+                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.01, 'random_state': 42, 
+                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+                'gk_gamma_list': np.logspace(-6, -3, num = 10, base = 10.0), 
             },  
         'BZR': \
             {
-                'niter_tn': 3, 'niter_hcc': 3, 'nu': 0.1, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 15, base = 10.0), 
-                'gk_gamma_list': np.logspace(-4, -2, num = 20, base = 10.0), 
+                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.1, 'random_state': 42, 
+                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+                'gk_gamma_list': np.logspace(-4, -2, num = 10, base = 10.0), 
             }, 
         'MSRC_21': \
             {
-                'niter_tn': 3, 'niter_hcc': 3, 'nu': 0.03, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 15, base = 10.0), 
-                'gk_gamma_list': np.logspace(-4, -3, num = 20, base = 10.0)
+                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.03, 'random_state': 42, 
+                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+                'gk_gamma_list': np.logspace(-4, -3, num = 10, base = 10.0)
             }, 
         'MSRC_9': \
             {
-                'niter_tn': 3, 'niter_hcc': 5, 'nu': 0.08, 'random_state': 3407, 
-                'alpha_list': np.logspace(-2, 0, num = 15, base = 10.0), 
-                'gk_gamma_list': np.logspace(-5, -2, num = 100, base = 10.0)
+                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.08, 'random_state': 3407, 
+                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+                'gk_gamma_list': np.logspace(-5, -2, num = 10, base = 10.0)
             }, 
         'COX2_MD': \
             {
-                'niter_tn': 3, 'niter_hcc': 3, 'nu': 0.05, 'random_state': 42, 
-                'alpha_list': np.logspace(-2, 0, num = 15, base = 10.0),
-                'gk_gamma_list': np.logspace(-4, -3, num = 20, base = 10.0)
+                'n_wl_iters': [3, 4, 5, 6, 7], 'n_csg_layers': [1, 2, 3], 'nu': 0.05, 'random_state': 42, 
+                'alpha_list': np.logspace(-2, 0, num = 10, base = 10.0), 
+                'gk_gamma_list': np.logspace(-4, -3, num = 10, base = 10.0)
             }, 
     }    
     
@@ -405,7 +389,8 @@ if __name__ == '__main__':
         'Mutagenicity': [0.823733, 0.007661, 0.823752, 0.007742, 0.896813, 0.008614],
         'FIRSTMM_DB': [0.761538, 0.076495, 0.721538, 0.090519, 0.810227, 0.031787],
         'NCI1': [0.850608, 0.010618, 0.850312, 0.010691, 0.910675, 0.011267],
-        'NCI109': [0.837772, 0.010161, 0.837347, 0.010254, 0.900845, 0.008164]
+        'NCI109': [0.837772, 0.010161, 0.837347, 0.010254, 0.900845, 0.008164],
+        'MUTAG': [0.855556, 0.103188, 0.855556, 0.103188, 0.879444, 0.093102],
     }
     
     n_repeats = 10
@@ -414,20 +399,46 @@ if __name__ == '__main__':
     
     for dname, params in dname_params.items():
         dataset_dict = download_dataset(dname)
-        for niter_hcc in range(0, 8):
-            niter_tn = params['niter_tn']
-            nu = params['nu']
-            random_state = params['random_state']
-            alpha_list = params['alpha_list']
-            gk_gamma_list = params['gk_gamma_list']
-            main(
-                dataset_dict, niter_tn, niter_hcc, nu, alpha_list, tol, 
-                gk_gamma_list, max_iter, n_repeats, random_state
-            )
+        wl_iters_list = params['n_wl_iters']
+        csg_layers_list = params['n_csg_layers']
+        nu = params['nu']
+        random_state = params['random_state']
+        alpha_list = params['alpha_list']
+        gk_gamma_list = params['gk_gamma_list']
+        
+        # Open one CSV per dataset, all (n_wl_iters, n_csg_layers) combinations go into the same file
+        result_base_dir = os.path.join('.', 'our_experiments', 'cycle_complex_wgk', 'topowgk_outputs')
+        os.makedirs(result_base_dir, exist_ok=True)
+        csv_path = os.path.join(result_base_dir, f'{dname}_svm_result.csv')
+        fout = open(csv_path, 'w', encoding='utf-8', newline='')
+        csv_writer = csv.writer(fout)
+        csv_writer.writerow([
+            'alpha', 'gk_gamma', 'n_wl_iters', 'n_csg_layers',
+            'acc', 'acc_std', 'f1_score', 'f1_score_std', 
+            'roc_auc_score', 'roc_auc_score_std', 'run_time'
+        ])
+        
+        for n_wl_iters in wl_iters_list:
+            for n_csg_layers in csg_layers_list:
+                result_df = main(
+                    dataset_dict, n_wl_iters, n_csg_layers, nu, alpha_list, tol, 
+                    gk_gamma_list, max_iter, n_repeats, random_state
+                )
+                for _, row in result_df.iterrows():
+                    csv_writer.writerow([
+                        round(float(row['alpha']), 6), round(float(row['gk_gamma']), 6),
+                        int(row['n_wl_iters']), int(row['n_csg_layers']),
+                        round(float(row['acc']), 4), round(float(row['acc_std']), 4),
+                        round(float(row['f1_score']), 4), round(float(row['f1_score_std']), 4),
+                        round(float(row['roc_auc_score']), 4), round(float(row['roc_auc_score_std']), 4),
+                        round(float(row['run_time']), 4)
+                    ])
+        fout.flush()
+        fout.close()
     # from postprocess_svm_results import filter_superior_results, select_best_results
     # for dname, params in dname_params.items():
     #     baseline_vals = dname_baseline[dname]
-    #     niter_tn = params['niter_tn']
-    #     niter_hcc = params['niter_hcc']
-    #     filter_superior_results(dname, niter_tn, niter_hcc, baseline_vals)
-    #     select_best_results(dname, niter_tn, niter_hcc)
+    #     n_wl_iters = params['n_wl_iters']
+    #     n_csg_layers = params['n_csg_layers']
+    #     filter_superior_results(dname, n_wl_iters, n_csg_layers, baseline_vals)
+    #     select_best_results(dname, n_wl_iters, n_csg_layers)

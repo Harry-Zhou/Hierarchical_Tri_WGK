@@ -1,4 +1,4 @@
-# Short-Long Topology-Aware Graph Kernel (Short_Long_Topology_Aware_WGK)
+# Hierarchical Triangulated WL Graph Kernel (Hierarchical_Tri_WGK)
 
 ## Overview
 
@@ -16,7 +16,7 @@ The combination is achieved via **Optimal Transport** to compute graph similarit
 ## Project Structure
 
 ```
-Short_Long_Topology_Aware_WGK/
+Hierarchical_Tri_WGK/
 ├── cyclic_schema/                       # Cyclic schema & hierarchical WL engine
 │   ├── cyclic_schema.py                 # CSG construction, cycle basis, multi-layer CSG, mappings
 │   ├── hierarchical_triangulated_wl.py  # Hierarchical WL (TN + HCC unified dispatch)

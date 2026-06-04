@@ -253,5 +253,5 @@ ax2.annotate("Red dashed: parallel edges\nBlack solid: twisted edges", xy=(0.7, 
              ha='center', style='italic')
 
 plt.tight_layout()
-plt.savefig('/media/zhouyu/data/Workspace/Short_Long_Topology_Aware_WGK/cfi_comparison.png', dpi=150, bbox_inches='tight')
-print("Figure saved to: /media/zhouyu/data/Workspace/Short_Long_Topology_Aware_WGK/cfi_comparison.png")
+plt.savefig('/media/zhouyu/data/Workspace/Hierarchical_Tri_WGK/cfi_comparison.png', dpi=150, bbox_inches='tight')
+print("Figure saved to: /media/zhouyu/data/Workspace/Hierarchical_Tri_WGK/cfi_comparison.png")

@@ -23,6 +23,10 @@ Step-1 Correspondence:
         containing that original_non_cycle CSG node.
     (3) If v appears as interface in the CSG → maps to a 1-tuple containing
         that interface CSG node.
+
+The minimum cycle basis is computed by the **Canonical MCB** algorithm
+(``canonical_mcb``), which is *isomorphism invariant*.  This is essential
+for the theoretical soundness of theorem 1.5.3 (Phi's isomorphism naturality).
 """
 
 from collections import defaultdict
@@ -137,6 +141,12 @@ def cyclic_schematic_graph(G, cb_prefix="CB"):
     """
     Construct cyclic schematic graph from input graph G.
 
+    The cycle basis is computed via the **canonical MCB** algorithm
+    (:func:`canonical_mcb`) which is *isomorphism invariant*.  This
+    guarantees that ``Phi`` is well-defined on isomorphism classes and
+    that theorem 1.5.3 (naturality of ``Phi`` under graph isomorphism)
+    holds rigorously.
+
     Parameters
     ----------
     G : networkx.Graph
@@ -151,15 +161,13 @@ def cyclic_schematic_graph(G, cb_prefix="CB"):
           - type: 'cycle_basis' | 'original_non_cycle' | 'interface'
           - If type='cycle_basis': also has cycle_index, original_nodes attributes
     cycle_basis : list
-        Minimum cycle basis list (each cycle is a canonicalized node tuple).
+        Canonical minimum cycle basis list (each cycle is a tuple of
+        vertices in canonical circle order).
     info : dict
         Additional information including node/edge classification details.
     """
-    # ============================================================
-    # Step 1: Detect minimum cycle basis
-    # ============================================================
-    raw_basis = nx.minimum_cycle_basis(G)
-    # Canonicalize each cycle and sort for deterministic ordering
+    from .canonical_mcb import canonical_mcb as _canonical_mcb
+    raw_basis = _canonical_mcb(G, depth=3)
     cycle_basis = []
     for c in raw_basis:
         canonical = _canonicalize_cycle(c)

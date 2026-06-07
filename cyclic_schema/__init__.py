@@ -6,6 +6,9 @@ Exports:
     cyclic_schematic_graph, build_multilayer_csg, build_multilayer_csg_with_mappings,
     build_csg_to_input_mapping, build_input_to_csg_mapping, ...
 
+  Canonical minimum cycle basis (canonical_mcb):
+    canonical_mcb, compute_canonical_vertex_ids, canonical_mcb_invariant_summary
+
   Step-2/Step-3 hierarchical WL (hierarchical_triangulated_wl):
     hierarchical_triangular_wl, hierarchical_triangular_wl_with_edges,
     hierarchical_triangular_wl_unified, ...
@@ -31,6 +34,12 @@ from .cyclic_schema import (
     print_analysis_info,
     get_cycle_edges,
     get_edge_in_cycle,
+)
+
+from .canonical_mcb import (
+    canonical_mcb,
+    compute_canonical_vertex_ids,
+    canonical_mcb_invariant_summary,
 )
 
 from .hierarchical_triangulated_wl import (

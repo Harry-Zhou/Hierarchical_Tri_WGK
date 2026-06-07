@@ -9,13 +9,13 @@ cyclic schematic graphs (CSG). The algorithm performs:
     - Forward (G -> CSG):  label tuple computation + message passing
     - Backward (CSG -> G): label propagation + message passing
   Step-3 (Multi-layer hierarchical message passing):
-    - Forward:  G -> CSG^1 -> CSG^2 -> ... -> CSG^K
-    - Backward: CSG^K -> ... -> CSG^1 -> G
+    - Forward:  G -> CSG^1 -> CSG^2 -> ... -> CSG^L
+    - Backward: CSG^L -> ... -> CSG^1 -> G
     - Repeated for I iterations.
 
 Key improvements over baseline:
   - Proper backward label tuple construction (prepends l_Gi(v) per spec)
-  - K=0 support (no CSG layers → triangulated neighbors WL)
+  - L=0 support (no CSG layers → triangulated neighbors WL)
   - Deterministic cycle label canonicalization (left/right walk from min)
   - Joint label assignment across both graphs (WL consistency)
 """
@@ -679,7 +679,7 @@ def hierarchical_triangular_wl(
     G2: nx.Graph,
     vlabel_np1: Any,
     vlabel_np2: Any,
-    K: int = 1,
+    L: int = 1,
     I: int = 5,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
@@ -688,8 +688,8 @@ def hierarchical_triangular_wl(
     Each iteration performs a complete message-passing cycle through the
     multi-layer hierarchy:
 
-      Forward:  G -> CSG^1 -> CSG^2 -> ... -> CSG^K
-      Backward: CSG^K -> ... -> CSG^1 -> G
+      Forward:  G -> CSG^1 -> CSG^2 -> ... -> CSG^L
+      Backward: CSG^L -> ... -> CSG^1 -> G
 
     Forward step at layer k:
       1. Compute final label tuples for CSG^k from previous layer labels
@@ -714,9 +714,11 @@ def hierarchical_triangular_wl(
         Initial node labels. If ndarray, elements are mapped to nodes in
         sorted order (arr[i] -> i-th node in sorted(G.nodes())).
         If dict, maps node -> label directly.
-    K : int
-        Number of CSG layers (default 1). K=0 means no CSG layers
+    L : int
+        Number of CSG layers (default 1). L=0 means no CSG layers
         (standard joint WL on the two input graphs).
+        Renamed from ``K`` to ``L`` in v2 to disambiguate from ``k`` in
+        ``k``-WL notation (where ``k`` denotes tuple width, not layer depth).
     I : int
         Number of iterations (default 5). Must be >= 1.
 
@@ -736,8 +738,8 @@ def hierarchical_triangular_wl(
     # ---------------------------------------------------------------
     # Validation and degenerate cases
     # ---------------------------------------------------------------
-    if K < 0:
-        raise ValueError(f"K must be >= 0, got {K}")
+    if L < 0:
+        raise ValueError(f"L must be >= 0, got {L}")
     if I < 1:
         raise ValueError(f"I must be >= 1, got {I}")
 
@@ -766,9 +768,9 @@ def hierarchical_triangular_wl(
         return wl_np1, wl_np2
 
     # ---------------------------------------------------------------
-    # K=0 case: triangulated neighbors WL (no CSG layers)
+    # L=0 case: triangulated neighbors WL (no CSG layers)
     # ---------------------------------------------------------------
-    if K == 0:
+    if L == 0:
         # Lazy-import the triangulated neighbors WL module
         _hcc_dir = _os.path.normpath(_os.path.join(
             _os.path.dirname(__file__),
@@ -824,7 +826,7 @@ def hierarchical_triangular_wl(
         return wl_np1, wl_np2
 
     # ---------------------------------------------------------------
-    # K >= 1: Build multi-layer CSG hierarchy (Step-3)
+    # L >= 1: Build multi-layer CSG hierarchy (Step-3)
     # ---------------------------------------------------------------
     layers1: List[Tuple[nx.Graph, List, Dict]] = []
     layers2: List[Tuple[nx.Graph, List, Dict]] = []
@@ -832,7 +834,7 @@ def hierarchical_triangular_wl(
     current_G1: nx.Graph = G1
     current_G2: nx.Graph = G2
 
-    for k in range(K):
+    for k in range(L):
         H1, cb1, info1 = cyclic_schematic_graph(current_G1, cb_prefix=f"cb{k}")
         H2, cb2, info2 = cyclic_schematic_graph(current_G2, cb_prefix=f"cb{k}")
         layers1.append((H1, cb1, info1))
@@ -848,7 +850,7 @@ def hierarchical_triangular_wl(
     current_lower1: nx.Graph = G1
     current_lower2: nx.Graph = G2
 
-    for k in range(K):
+    for k in range(L):
         H1_k, cb1_k, _ = layers1[k]
         mappings1.append(build_input_to_csg_mapping(H1_k, cb1_k, current_lower1))
 
@@ -864,7 +866,7 @@ def hierarchical_triangular_wl(
     nc_input1 = _precompute_neighbor_components(G1)
     nc_input2 = _precompute_neighbor_components(G2)
     nc_csg: List[Tuple[Dict[Hashable, Tuple], Dict[Hashable, Tuple]]] = []
-    for k in range(K):
+    for k in range(L):
         H1_k, _, _ = layers1[k]
         H2_k, _, _ = layers2[k]
         nc_csg.append((
@@ -890,12 +892,12 @@ def hierarchical_triangular_wl(
             max(current_labels2.values()),
         )
 
-        # ---- Forward pass: G -> CSG^1 -> ... -> CSG^K ----
+        # ---- Forward pass: G -> CSG^1 -> ... -> CSG^L ----
         # forward_labels[i] keeps the labels of the i-th layer (i=0 is G)
         forward_labels1: List[Dict[Hashable, int]] = [current_labels1]
         forward_labels2: List[Dict[Hashable, int]] = [current_labels2]
 
-        for layer_idx in range(K):
+        for layer_idx in range(L):
             H1, cb1, _ = layers1[layer_idx]
             H2, cb2, _ = layers2[layer_idx]
             nc1, nc2 = nc_csg[layer_idx]
@@ -921,11 +923,11 @@ def hierarchical_triangular_wl(
             if new_labels2:
                 current_max_label = max(current_max_label, max(new_labels2.values()))
 
-        # ---- Backward pass: CSG^K -> ... -> CSG^1 -> G ----
+        # ---- Backward pass: CSG^L -> ... -> CSG^1 -> G ----
         higher_labels1 = forward_labels1[-1]
         higher_labels2 = forward_labels2[-1]
 
-        for step in range(K, 0, -1):
+        for step in range(L, 0, -1):
             # Determine the 'lower' graph and its precomputed components
             if step == 1:
                 lower_G1 = G1
@@ -976,7 +978,7 @@ def hierarchical_triangular_wl_with_edges(
     vlabel_np2: Any,
     elabel_dict1: Dict,
     elabel_dict2: Dict,
-    K: int = 1,
+    L: int = 1,
     I: int = 5,
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
@@ -1004,8 +1006,8 @@ def hierarchical_triangular_wl_with_edges(
     elabel_dict1, elabel_dict2 : dict
         Initial edge labels ``{(u, v): int}`` with ``u <= v``.  Must cover
         **all** edges of the respective graph (edges not present default to 0).
-    K : int
-        Number of CSG layers (default 1).  ``K=0`` means triangulated-
+    L : int
+        Number of CSG layers (default 1).  ``L=0`` means triangulated-
         neighbours edge WL (no CSG hierarchy).
     I : int
         Number of iterations (default 5).  Must be >= 1.
@@ -1020,8 +1022,8 @@ def hierarchical_triangular_wl_with_edges(
     # ---------------------------------------------------------------
     # Validation
     # ---------------------------------------------------------------
-    if K < 0:
-        raise ValueError(f"K must be >= 0, got {K}")
+    if L < 0:
+        raise ValueError(f"L must be >= 0, got {L}")
     if I < 1:
         raise ValueError(f"I must be >= 1, got {I}")
     _validate_edge_labels(G1, elabel_dict1, G2, elabel_dict2)
@@ -1073,9 +1075,9 @@ def hierarchical_triangular_wl_with_edges(
         return vwl_np1, vwl_np2, ewl_np1, ewl_np2
 
     # ---------------------------------------------------------------
-    # K=0: triangulated neighbours edge WL (no CSG layers)
+    # L=0: triangulated neighbours edge WL (no CSG layers)
     # ---------------------------------------------------------------
-    if K == 0:
+    if L == 0:
         _hcc_dir = _os.path.normpath(_os.path.join(
             _os.path.dirname(__file__),
             '..', 'hierarchical_tri_wl_tools'))
@@ -1151,7 +1153,7 @@ def hierarchical_triangular_wl_with_edges(
         return vwl_np1, vwl_np2, ewl_np1, ewl_np2
 
     # ---------------------------------------------------------------
-    # K >= 1: Build CSG hierarchy
+    # L >= 1: Build CSG hierarchy
     # ---------------------------------------------------------------
     layers1: List[Tuple[nx.Graph, List, Dict]] = []
     layers2: List[Tuple[nx.Graph, List, Dict]] = []
@@ -1159,7 +1161,7 @@ def hierarchical_triangular_wl_with_edges(
     current_G1 = G1
     current_G2 = G2
 
-    for k in range(K):
+    for k in range(L):
         H1, cb1, info1 = cyclic_schematic_graph(current_G1, cb_prefix=f"cb{k}")
         H2, cb2, info2 = cyclic_schematic_graph(current_G2, cb_prefix=f"cb{k}")
         layers1.append((H1, cb1, info1))
@@ -1174,7 +1176,7 @@ def hierarchical_triangular_wl_with_edges(
     current_lower1 = G1
     current_lower2 = G2
 
-    for k in range(K):
+    for k in range(L):
         H1_k, cb1_k, _ = layers1[k]
         mappings1.append(build_input_to_csg_mapping(H1_k, cb1_k, current_lower1))
         H2_k, cb2_k, _ = layers2[k]
@@ -1186,7 +1188,7 @@ def hierarchical_triangular_wl_with_edges(
     nc_input1 = _precompute_neighbor_components(G1)
     nc_input2 = _precompute_neighbor_components(G2)
     nc_csg: List[Tuple[Dict[Hashable, Tuple], Dict[Hashable, Tuple]]] = []
-    for k in range(K):
+    for k in range(L):
         H1_k, _, _ = layers1[k]
         H2_k, _, _ = layers2[k]
         nc_csg.append((
@@ -1218,11 +1220,11 @@ def hierarchical_triangular_wl_with_edges(
             max(current_labels2.values()),
         )
 
-        # ---- Forward pass: G -> CSG^1 -> ... -> CSG^K ----
+        # ---- Forward pass: G -> CSG^1 -> ... -> CSG^L ----
         forward_labels1 = [current_labels1]
         forward_labels2 = [current_labels2]
 
-        for layer_idx in range(K):
+        for layer_idx in range(L):
             H1, cb1, _ = layers1[layer_idx]
             H2, cb2, _ = layers2[layer_idx]
             nc1, nc2 = nc_csg[layer_idx]
@@ -1245,11 +1247,11 @@ def hierarchical_triangular_wl_with_edges(
             if new_labels2:
                 current_max_label = max(current_max_label, max(new_labels2.values()))
 
-        # ---- Backward pass: CSG^K -> ... -> CSG^1 -> G ----
+        # ---- Backward pass: CSG^L -> ... -> CSG^1 -> G ----
         higher_labels1 = forward_labels1[-1]
         higher_labels2 = forward_labels2[-1]
 
-        for step in range(K, 0, -1):
+        for step in range(L, 0, -1):
             if step == 1:
                 lower_G1, lower_G2 = G1, G2
                 lower_lbls1, lower_lbls2 = current_labels1, current_labels2
@@ -1320,7 +1322,7 @@ def hierarchical_triangular_wl_unified(
     vlabel_np2: Any,
     elabel_dict1: Optional[Dict] = None,
     elabel_dict2: Optional[Dict] = None,
-    K: int = 1,
+    L: int = 1,
     I: int = 5,
 ) -> Tuple[np.ndarray, np.ndarray]:
     """
@@ -1345,7 +1347,7 @@ def hierarchical_triangular_wl_unified(
         Initial node labels.
     elabel_dict1, elabel_dict2 : dict, optional
         Initial edge labels (required iff ``g_info['el']`` is True).
-    K : int
+    L : int
         Number of CSG layers (default 1).
     I : int
         Number of iterations (default 5).
@@ -1361,12 +1363,12 @@ def hierarchical_triangular_wl_unified(
         _ed2: Dict = elabel_dict2 if elabel_dict2 is not None else {}
         vwl1, vwl2, _ewl1, _ewl2 = hierarchical_triangular_wl_with_edges(
             G1, G2, vlabel_np1, vlabel_np2,
-            _ed1, _ed2, K, I,
+            _ed1, _ed2, L, I,
         )
         return vwl1, vwl2
     else:
         return hierarchical_triangular_wl(
-            G1, G2, vlabel_np1, vlabel_np2, K, I,
+            G1, G2, vlabel_np1, vlabel_np2, L, I,
         )
 
 
@@ -1431,38 +1433,38 @@ if __name__ == "__main__":
     vlabel2 = vlabel.copy()
 
     # ====================================================================
-    # Test 1a: identical graphs, identical labels, K=1/2/3
+    # Test 1a: identical graphs, identical labels, L=1/2/3
     # ====================================================================
-    print("\n--- Test 1a: identical graphs, identical labels, K=1/2/3 ---")
-    for K in (1, 2, 3):
-        wl1_f, wl2_f = hierarchical_triangular_wl(G1, G2, vlabel1, vlabel2, K=K, I=3)
+    print("\n--- Test 1a: identical graphs, identical labels, L=1/2/3 ---")
+    for L in (1, 2, 3):
+        wl1_f, wl2_f = hierarchical_triangular_wl(G1, G2, vlabel1, vlabel2, L=L, I=3)
         match = np.all(wl1_f == wl2_f)
-        print(f"  K={K} I=3  shapes={wl1_f.shape}  match={match}")
-        assert match, f"K={K}: identical inputs should give identical labels"
+        print(f"  L={L} I=3  shapes={wl1_f.shape}  match={match}")
+        assert match, f"L={L}: identical inputs should give identical labels"
 
     # ====================================================================
-    # Test 1b: identical graphs under K=0 (triangulated neighbors WL)
+    # Test 1b: identical graphs under L=0 (triangulated neighbors WL)
     # ====================================================================
-    print("\n--- Test 1b: K=0 (triangulated neighbors WL) ---")
+    print("\n--- Test 1b: L=0 (triangulated neighbors WL) ---")
     wl_k0_1, wl_k0_2 = hierarchical_triangular_wl(
-        G1, G2, vlabel1, vlabel2, K=0, I=3)
+        G1, G2, vlabel1, vlabel2, L=0, I=3)
     match_k0 = np.all(wl_k0_1 == wl_k0_2)
-    print(f"  K=0 I=3  shapes={wl_k0_1.shape}  match={match_k0}")
-    assert match_k0, "K=0: identical inputs should give identical labels"
+    print(f"  L=0 I=3  shapes={wl_k0_1.shape}  match={match_k0}")
+    assert match_k0, "L=0: identical inputs should give identical labels"
     assert wl_k0_1.shape == (26, 4), f"Expected (26, 4), got {wl_k0_1.shape}"
 
     # ====================================================================
-    # Test 2: isomorphic graphs (relabeled), K=1/2/3
+    # Test 2: isomorphic graphs (relabeled), L=1/2/3
     # ====================================================================
-    print("\n--- Test 2: isomorphic graphs (relabeled), K=1/2/3 ---")
+    print("\n--- Test 2: isomorphic graphs (relabeled), L=1/2/3 ---")
     relabel = {i: 25 - i for i in range(26)}
     G1b = nx.relabel_nodes(G1, relabel)
     vlabel_b = np.array([vlabel[25 - i] for i in range(26)], dtype=np.int32)
-    for K in (1, 2, 3):
+    for L in (1, 2, 3):
         wl1, wl2 = hierarchical_triangular_wl(
-            G1, G1b, vlabel1, vlabel_b, K=K, I=3)
+            G1, G1b, vlabel1, vlabel_b, L=L, I=3)
         iso = _is_isomorphic_wl(wl1, wl2)
-        print(f"  K={K} I=3  iso_multiset={iso}")
+        print(f"  L={L} I=3  iso_multiset={iso}")
         if not iso:
             print(f"    Warning: isomorphic graphs differ due to cycle_basis order.")
             print(f"    Known limitation: nx.minimum_cycle_basis is not")
@@ -1479,17 +1481,17 @@ if __name__ == "__main__":
     G_cycle = _build_cycle(6)
     G_path = _build_path(6)
     labels = np.array([0, 1, 2, 0, 1, 2], dtype=np.int32)
-    wl_c, wl_p = hierarchical_triangular_wl(G_cycle, G_path, labels, labels, K=1, I=3)
+    wl_c, wl_p = hierarchical_triangular_wl(G_cycle, G_path, labels, labels, L=1, I=3)
     not_iso = not _is_isomorphic_wl(wl_c, wl_p)
-    print(f"  K=1 I=3  cycle vs path: distinguish={not_iso}")
+    print(f"  L=1 I=3  cycle vs path: distinguish={not_iso}")
     assert not_iso, "WL must distinguish a 6-cycle from a 6-path"
 
     # ====================================================================
-    # Test 4: multi-layer K=4
+    # Test 4: multi-layer L=4
     # ====================================================================
-    print("\n--- Test 4: multi-layer K=4 ---")
-    wl1, wl2 = hierarchical_triangular_wl(G1, G2, vlabel1, vlabel2, K=4, I=2)
-    print(f"  K=4 I=2  shapes={wl1.shape}  match={np.all(wl1 == wl2)}")
+    print("\n--- Test 4: multi-layer L=4 ---")
+    wl1, wl2 = hierarchical_triangular_wl(G1, G2, vlabel1, vlabel2, L=4, I=2)
+    print(f"  L=4 I=2  shapes={wl1.shape}  match={np.all(wl1 == wl2)}")
     assert np.all(wl1 == wl2)
 
     # ====================================================================
@@ -1497,8 +1499,8 @@ if __name__ == "__main__":
     # ====================================================================
     print("\n--- Test 5: dict-form initial labels ---")
     labels_dict = {v: int(vlabel1[i]) for i, v in enumerate(sorted(G1.nodes()))}
-    wl_d, _ = hierarchical_triangular_wl(G1, G2, labels_dict, labels_dict, K=1, I=2)
-    wl_a, _ = hierarchical_triangular_wl(G1, G2, vlabel1, vlabel2, K=1, I=2)
+    wl_d, _ = hierarchical_triangular_wl(G1, G2, labels_dict, labels_dict, L=1, I=2)
+    wl_a, _ = hierarchical_triangular_wl(G1, G2, vlabel1, vlabel2, L=1, I=2)
     print(f"  dict-vs-array: match={np.all(wl_d == wl_a)}")
     assert np.all(wl_d == wl_a)
 
@@ -1510,8 +1512,8 @@ if __name__ == "__main__":
     G_acyclic2 = _build_path(5)
     labels_path = np.array([0, 1, 0, 1, 0], dtype=np.int32)
     wl1, wl2 = hierarchical_triangular_wl(
-        G_acyclic, G_acyclic2, labels_path, labels_path.copy(), K=1, I=2)
-    print(f"  acyclic K=1 I=2: shapes={wl1.shape}  match={np.all(wl1 == wl2)}")
+        G_acyclic, G_acyclic2, labels_path, labels_path.copy(), L=1, I=2)
+    print(f"  acyclic L=1 I=2: shapes={wl1.shape}  match={np.all(wl1 == wl2)}")
     assert np.all(wl1 == wl2)
 
     # ====================================================================
@@ -1524,8 +1526,8 @@ if __name__ == "__main__":
     G_single2.add_node(0)
     labels_single = np.array([42], dtype=np.int32)
     wl1, wl2 = hierarchical_triangular_wl(
-        G_single, G_single2, labels_single, labels_single.copy(), K=1, I=2)
-    print(f"  single-node K=1 I=2: shapes={wl1.shape}  match={np.all(wl1 == wl2)}")
+        G_single, G_single2, labels_single, labels_single.copy(), L=1, I=2)
+    print(f"  single-node L=1 I=2: shapes={wl1.shape}  match={np.all(wl1 == wl2)}")
     assert np.all(wl1 == wl2)
 
     # ====================================================================
@@ -1536,8 +1538,8 @@ if __name__ == "__main__":
     G_disj2 = _build_two_triangles()
     labels_disj = np.array([0, 1, 2, 0, 1, 2], dtype=np.int32)
     wl1, wl2 = hierarchical_triangular_wl(
-        G_disj, G_disj2, labels_disj, labels_disj.copy(), K=1, I=2)
-    print(f"  disjoint cycles K=1 I=2: shapes={wl1.shape}  match={np.all(wl1 == wl2)}")
+        G_disj, G_disj2, labels_disj, labels_disj.copy(), L=1, I=2)
+    print(f"  disjoint cycles L=1 I=2: shapes={wl1.shape}  match={np.all(wl1 == wl2)}")
     assert np.all(wl1 == wl2)
 
     # ====================================================================
@@ -1549,8 +1551,8 @@ if __name__ == "__main__":
     G_nc2 = nx.Graph()
     G_nc2.add_edges_from([(0, 5), (5, 10), (10, 0)])
     labels_nc = np.array([1, 2, 3], dtype=np.int32)
-    wl1, wl2 = hierarchical_triangular_wl(G_nc, G_nc2, labels_nc, labels_nc, K=1, I=2)
-    print(f"  non-consecutive K=1 I=2: shapes={wl1.shape}  match={np.all(wl1 == wl2)}")
+    wl1, wl2 = hierarchical_triangular_wl(G_nc, G_nc2, labels_nc, labels_nc, L=1, I=2)
+    print(f"  non-consecutive L=1 I=2: shapes={wl1.shape}  match={np.all(wl1 == wl2)}")
     assert np.all(wl1 == wl2), "Non-consecutive node IDs with ndarray labels must work"
 
     # ====================================================================
@@ -1560,22 +1562,22 @@ if __name__ == "__main__":
     G_empty = nx.Graph()
     G_empty2 = nx.Graph()
     labels_empty = np.array([], dtype=np.int32)
-    wl1, wl2 = hierarchical_triangular_wl(G_empty, G_empty2, labels_empty, labels_empty, K=1, I=2)
+    wl1, wl2 = hierarchical_triangular_wl(G_empty, G_empty2, labels_empty, labels_empty, L=1, I=2)
     print(f"  empty graph: shapes={wl1.shape}  match={np.all(wl1 == wl2)}")
     assert np.all(wl1 == wl2)
 
     # ====================================================================
-    # Test 11: cycle_basis node label updates (K=1 forward only)
+    # Test 11: cycle_basis node label updates (L=1 forward only)
     # ====================================================================
-    print("\n--- Test 11: triangle graph K=1 ---")
+    print("\n--- Test 11: triangle graph L=1 ---")
     G_tri1 = nx.Graph()
     G_tri1.add_edges_from([(0, 1), (1, 2), (0, 2)])
     G_tri2 = nx.Graph()
     G_tri2.add_edges_from([(0, 1), (1, 2), (0, 2)])
     tri_labels = np.array([1, 2, 3], dtype=np.int32)
     wl_t1, wl_t2 = hierarchical_triangular_wl(
-        G_tri1, G_tri2, tri_labels, tri_labels.copy(), K=1, I=2)
-    print(f"  triangle K=1 I=2: shapes={wl_t1.shape}  match={np.all(wl_t1 == wl_t2)}")
+        G_tri1, G_tri2, tri_labels, tri_labels.copy(), L=1, I=2)
+    print(f"  triangle L=1 I=2: shapes={wl_t1.shape}  match={np.all(wl_t1 == wl_t2)}")
     assert np.all(wl_t1 == wl_t2)
     assert wl_t1.shape == (3, 3), f"Expected (3, 3) shape, got {wl_t1.shape}"
 
@@ -1636,11 +1638,11 @@ if __name__ == "__main__":
     print("  All step-1 mapping invariants verified.")
 
     # ====================================================================
-    # Test 15: multi-layer with K=5 (stress test)
+    # Test 15: multi-layer with L=5 (stress test)
     # ====================================================================
-    print("\n--- Test 15: multi-layer with K=5 (stress test) ---")
-    wl1, wl2 = hierarchical_triangular_wl(G1, G2, vlabel1, vlabel2, K=5, I=2)
-    print(f"  K=5 I=2: shapes={wl1.shape}  match={np.all(wl1 == wl2)}")
+    print("\n--- Test 15: multi-layer with L=5 (stress test) ---")
+    wl1, wl2 = hierarchical_triangular_wl(G1, G2, vlabel1, vlabel2, L=5, I=2)
+    print(f"  L=5 I=2: shapes={wl1.shape}  match={np.all(wl1 == wl2)}")
     assert np.all(wl1 == wl2)
 
     # ====================================================================
@@ -1651,31 +1653,31 @@ if __name__ == "__main__":
     G_chord2 = _build_chord_cycle()
     chord_labels = np.array([1, 2, 3, 4], dtype=np.int32)
     wl_c, wl_c2 = hierarchical_triangular_wl(
-        G_chord, G_chord2, chord_labels, chord_labels.copy(), K=1, I=2)
-    print(f"  chord K=1 I=2: shapes={wl_c.shape}  match={np.all(wl_c == wl_c2)}")
+        G_chord, G_chord2, chord_labels, chord_labels.copy(), L=1, I=2)
+    print(f"  chord L=1 I=2: shapes={wl_c.shape}  match={np.all(wl_c == wl_c2)}")
     assert wl_c.shape == (4, 3)
     assert np.all(wl_c == wl_c2), "Identical chord graphs should have identical labels"
 
     # ====================================================================
-    # Test 17: K=0 on acyclic graph (triangulated neighbors WL)
+    # Test 17: L=0 on acyclic graph (triangulated neighbors WL)
     # ====================================================================
-    print("\n--- Test 17: K=0 on acyclic graph (triangulated neighbors WL) ---")
+    print("\n--- Test 17: L=0 on acyclic graph (triangulated neighbors WL) ---")
     G_lin = _build_path(4)
     G_lin2 = _build_path(4)
     lin_labels = np.array([3, 1, 4, 1], dtype=np.int32)
-    wl_k0_a, wl_k0_b = hierarchical_triangular_wl(G_lin, G_lin2, lin_labels, lin_labels, K=0, I=2)
+    wl_k0_a, wl_k0_b = hierarchical_triangular_wl(G_lin, G_lin2, lin_labels, lin_labels, L=0, I=2)
     match_k0 = np.all(wl_k0_a == wl_k0_b)
-    print(f"  K=0 I=2 shapes={wl_k0_a.shape}  match={match_k0}")
-    assert match_k0, "K=0: identical acyclic graphs should produce identical labels"
+    print(f"  L=0 I=2 shapes={wl_k0_a.shape}  match={match_k0}")
+    assert match_k0, "L=0: identical acyclic graphs should produce identical labels"
 
     # ====================================================================
-    # Test 18: Verify the K=0/K=1/K=2 consistent ordering
+    # Test 18: Verify the L=0/L=1/L=2 consistent ordering
     # ====================================================================
     print("\n--- Test 18: ordering: same initial labels produce same output shape ---")
-    for K in (0, 1, 2, 3):
-        wl_a, wl_b = hierarchical_triangular_wl(G1, G2, vlabel1, vlabel2, K=K, I=2)
-        assert np.all(wl_a == wl_b), f"K={K}: identical -> identical failed"
-    print("  All K produced identical labels for identical inputs.")
+    for L in (0, 1, 2, 3):
+        wl_a, wl_b = hierarchical_triangular_wl(G1, G2, vlabel1, vlabel2, L=L, I=2)
+        assert np.all(wl_a == wl_b), f"L={L}: identical -> identical failed"
+    print("  All L produced identical labels for identical inputs.")
 
     # ====================================================================
     # Test 19: Three-cycle (triangle) different label orders
@@ -1687,7 +1689,7 @@ if __name__ == "__main__":
     G_trib.add_edges_from([(0, 1), (1, 2), (0, 2)])
     labels_a = np.array([5, 10, 15], dtype=np.int32)
     labels_b = np.array([15, 5, 10], dtype=np.int32)
-    wl_tria, _ = hierarchical_triangular_wl(G_tria, G_trib, labels_a, labels_b, K=1, I=3)
+    wl_tria, _ = hierarchical_triangular_wl(G_tria, G_trib, labels_a, labels_b, L=1, I=3)
     iso_tri = _is_isomorphic_wl(wl_tria, wl_tria)
     print(f"  triangle different labelings: iso={iso_tri}")
 
@@ -1696,7 +1698,7 @@ if __name__ == "__main__":
     # (labels only increase as new aggregate signatures are discovered)
     # ====================================================================
     print("\n--- Test 20: label monotonicity check ---")
-    wl1, wl2 = hierarchical_triangular_wl(G1, G2, vlabel1, vlabel2, K=2, I=4)
+    wl1, wl2 = hierarchical_triangular_wl(G1, G2, vlabel1, vlabel2, L=2, I=4)
     for col in range(1, wl1.shape[1]):
         assert np.all(wl1[:, col] >= wl1[:, col - 1]), \
             f"Labels should be non-decreasing at column {col}"
@@ -1709,12 +1711,12 @@ if __name__ == "__main__":
     # ====================================================================
     print("\n--- Test 21: error handling ---")
     try:
-        hierarchical_triangular_wl(G1, G2, vlabel1, vlabel2, K=-1, I=2)
-        print("  FAIL: K=-1 should raise ValueError")
+        hierarchical_triangular_wl(G1, G2, vlabel1, vlabel2, L=-1, I=2)
+        print("  FAIL: L=-1 should raise ValueError")
     except ValueError:
-        print("  K=-1 raises ValueError: OK")
+        print("  L=-1 raises ValueError: OK")
     try:
-        hierarchical_triangular_wl(G1, G2, vlabel1, vlabel2, K=1, I=0)
+        hierarchical_triangular_wl(G1, G2, vlabel1, vlabel2, L=1, I=0)
         print("  FAIL: I=0 should raise ValueError")
     except ValueError:
         print("  I=0 raises ValueError: OK")

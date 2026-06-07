@@ -82,7 +82,7 @@ def _compute_block_worker(block):
             ed1, ed2 = None, None
         return hierarchical_triangular_wl_unified(
             _g_info, G1, G2, rv, cv, ed1, ed2,
-            K=_GLOBAL_N_CSG_LAYERS, I=_GLOBAL_N_WL_ITERS,
+            L=_GLOBAL_N_CSG_LAYERS, I=_GLOBAL_N_WL_ITERS,
         )
 
     def _wl_counter(node_neighs, vwl_np, vmax_label):
@@ -178,7 +178,7 @@ class TopoWassersteinGraphKernel:
             ed1, ed2 = None, None
         return hierarchical_triangular_wl_unified(
             self._dataset_info, G1, G2, rv, cv, ed1, ed2,
-            K=self._n_csg_layers, I=self._n_wl_iters,
+            L=self._n_csg_layers, I=self._n_wl_iters,
         )
 
     def _otdist_wlsim_worker(self, start_ridx, end_ridx, start_cidx, end_cidx):

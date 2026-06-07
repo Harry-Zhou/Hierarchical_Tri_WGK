@@ -6,7 +6,7 @@ Validates:
 2. Node-only kernel treats those graphs as identical
 3. Edge-label kernel produces different results from node-only kernel
 4. Unified dispatch works for both has_el=True and has_el=False cases
-5. K=0 properly dispatches to triangulated neighbors WL for both node/edge cases
+5. L=0 properly dispatches to triangulated neighbors WL for both node/edge cases
 6. Full matrix comparison: edge-labeled vs non-edge-labeled outputs
 7. g_info passage through from dataset processing to WL test
 """
@@ -72,35 +72,35 @@ def test_unified_wl_dispatch():
     vl1 = np.array([1, 2, 1], dtype=np.int32)
     vl2 = vl1.copy()
 
-    # === Node-only (K=1) ===
+    # === Node-only (L=1) ===
     g_info_noel = {'el': False, 'nl': True}
     wl_n, _ = hierarchical_triangular_wl_unified(
-        g_info_noel, G1, G2, vl1, vl2, None, None, K=1, I=2)
+        g_info_noel, G1, G2, vl1, vl2, None, None, L=1, I=2)
     assert wl_n.shape == (3, 3), f"Expected (3,3), got {wl_n.shape}"
 
-    # === Node-only (K=0) ===
+    # === Node-only (L=0) ===
     wl_n0, _ = hierarchical_triangular_wl_unified(
-        g_info_noel, G1, G2, vl1, vl2, None, None, K=0, I=2)
+        g_info_noel, G1, G2, vl1, vl2, None, None, L=0, I=2)
     assert wl_n0.shape == (3, 3), f"Expected (3,3), got {wl_n0.shape}"
 
-    # === Edge-label (K=1) ===
+    # === Edge-label (L=1) ===
     g_info_el = {'el': True, 'nl': True}
     ed1 = {(0, 1): 5, (1, 2): 10}
     ed2 = {(0, 1): 5, (1, 2): 10}
     wl_e, _ = hierarchical_triangular_wl_unified(
-        g_info_el, G1, G2, vl1, vl2, ed1, ed2, K=1, I=2)
+        g_info_el, G1, G2, vl1, vl2, ed1, ed2, L=1, I=2)
     assert wl_e.shape == (3, 3), f"Expected (3,3), got {wl_e.shape}"
 
-    # === Edge-label (K=0) ===
+    # === Edge-label (L=0) ===
     wl_e0, _ = hierarchical_triangular_wl_unified(
-        g_info_el, G1, G2, vl1, vl2, ed1, ed2, K=0, I=2)
+        g_info_el, G1, G2, vl1, vl2, ed1, ed2, L=0, I=2)
     assert wl_e0.shape == (3, 3), f"Expected (3,3), got {wl_e0.shape}"
 
     # Edge-label output should differ from node-only
     assert not np.all(wl_e == wl_n), \
         "Edge-label WL should differ from node-only WL"
 
-    print("[PASS] Unified WL dispatch correct for all (el, K) combinations")
+    print("[PASS] Unified WL dispatch correct for all (el, L) combinations")
 
 
 def test_kernel_node_only():
@@ -108,7 +108,7 @@ def test_kernel_node_only():
     graphs, vlabels, edges_list, elabels_list, \
         deg_distr_list, vtx_hcc_list, vtx_tn_list = _make_path3_graphs()
 
-    # Test with n_csg_layers=0 (K=0, TN path)
+    # Test with n_csg_layers=0 (L=0, TN path)
     g_info = {'el': False, 'nl': True}
     kernel = TopoWassersteinGraphKernel(
         n_wl_iters=2, n_csg_layers=0, wl_normalized=False,
@@ -118,10 +118,10 @@ def test_kernel_node_only():
     ot, wl, _ = kernel.transform()
     # All 3 graphs are identical (same path structure, same node labels)
     assert ot.max() < 1e-8, \
-        "Node-only K=0: identical graphs should have zero OT distance"
-    print("[PASS] Kernel node-only K=0 produces correct full matrix")
+        "Node-only L=0: identical graphs should have zero OT distance"
+    print("[PASS] Kernel node-only L=0 produces correct full matrix")
 
-    # Test with n_csg_layers=1 (K=1, CSG path)
+    # Test with n_csg_layers=1 (L=1, CSG path)
     kernel2 = TopoWassersteinGraphKernel(
         n_wl_iters=2, n_csg_layers=1, wl_normalized=False,
     )
@@ -129,8 +129,8 @@ def test_kernel_node_only():
                 vtx_hcc_list, vtx_tn_list, deg_distr_list)
     ot2, wl2, _ = kernel2.transform()
     assert ot2.max() < 1e-8, \
-        "Node-only K=1: identical graphs should have zero OT distance"
-    print("[PASS] Kernel node-only K=1 produces correct full matrix")
+        "Node-only L=1: identical graphs should have zero OT distance"
+    print("[PASS] Kernel node-only L=1 produces correct full matrix")
 
 
 def test_kernel_edge_label():
@@ -140,7 +140,7 @@ def test_kernel_edge_label():
 
     g_info = {'el': True, 'nl': True}
 
-    # --- Test with n_csg_layers=0 (K=0, TN edge WL) ---
+    # --- Test with n_csg_layers=0 (L=0, TN edge WL) ---
     kernel = TopoWassersteinGraphKernel(
         n_wl_iters=2, n_csg_layers=0, wl_normalized=False,
     )
@@ -150,13 +150,13 @@ def test_kernel_edge_label():
 
     # G0 vs G1: different edge labels -> different
     assert ot_el[0, 0] != ot_el[0, 1] or wl_el[0, 0] != wl_el[0, 1], \
-        "Edge-label K=0 kernel must distinguish G0 from G1"
+        "Edge-label L=0 kernel must distinguish G0 from G1"
     # G0 vs G2: same edge labels -> same
     assert ot_el[0, 2] < 1e-8, \
-        "G0 and G2 (same edge labels) should have zero OT distance (K=0)"
-    print("[PASS] Kernel edge-label K=0 distinguishes by edge labels")
+        "G0 and G2 (same edge labels) should have zero OT distance (L=0)"
+    print("[PASS] Kernel edge-label L=0 distinguishes by edge labels")
 
-    # --- Test with n_csg_layers=1 (K=1, CSG edge WL) ---
+    # --- Test with n_csg_layers=1 (L=1, CSG edge WL) ---
     kernel2 = TopoWassersteinGraphKernel(
         n_wl_iters=2, n_csg_layers=1, wl_normalized=False,
     )
@@ -165,10 +165,10 @@ def test_kernel_edge_label():
     ot2, wl2, _ = kernel2.transform()
 
     assert ot2[0, 0] != ot2[0, 1] or wl2[0, 0] != wl2[0, 1], \
-        "Edge-label K=1 kernel must distinguish G0 from G1"
+        "Edge-label L=1 kernel must distinguish G0 from G1"
     assert ot2[0, 2] < 1e-8, \
-        "G0 and G2 (same edge labels) should have zero OT distance (K=1)"
-    print("[PASS] Kernel edge-label K=1 distinguishes by edge labels")
+        "G0 and G2 (same edge labels) should have zero OT distance (L=1)"
+    print("[PASS] Kernel edge-label L=1 distinguishes by edge labels")
 
 
 def test_full_matrix_comparison():
@@ -268,9 +268,9 @@ def test_wl_label_decomposition():
 
     g_info = {'el': False, 'nl': True}
     wl_unified, _ = hierarchical_triangular_wl_unified(
-        g_info, G1, G2, vl, vl.copy(), None, None, K=1, I=2)
+        g_info, G1, G2, vl, vl.copy(), None, None, L=1, I=2)
     wl_direct, _ = hierarchical_triangular_wl(
-        G1, G2, vl, vl.copy(), K=1, I=2)
+        G1, G2, vl, vl.copy(), L=1, I=2)
 
     assert np.all(wl_unified == wl_direct), \
         "Unified (el=False) should match direct call"

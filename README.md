@@ -83,8 +83,8 @@ Hierarchical_Tri_WGK/
 
 The `cyclic_schema` package converts an input graph into a **Cyclic Schematic Graph (CSG)** — a higher-level abstraction where each cycle in the input graph becomes a node. This enables multi-layer hierarchical analysis:
 
-- **Single-layer CSG** (K=1): One level of cycle abstraction
-- **Multi-layer CSG** (K>1): Recursively build CSG on CSGs for deeper abstraction
+- **Single-layer CSG** (L=1): One level of cycle abstraction
+- **Multi-layer CSG** (L>1): Recursively build CSG on CSGs for deeper abstraction
 
 The CSG construction identifies cycle bases, classifies nodes (cycle / non-cycle / interface), and builds input-to-CSG and CSG-to-input mappings for label propagation.
 
@@ -283,8 +283,8 @@ Hierarchical_Tri_WGK/
 
 `cyclic_schema` 包将输入图转换为**环式图 (CSG)** — 这是一种更高层次的抽象，其中输入图中的每个环都成为一个节点。这使得多层层级分析成为可能：
 
-- **单层 CSG** (K=1)：一层环抽象
-- **多层 CSG** (K>1)：递归地在 CSG 上构建 CSG，获得更深层次的抽象
+- **单层 CSG** (L=1)：一层环抽象
+- **多层 CSG** (L>1)：递归地在 CSG 上构建 CSG，获得更深层次的抽象
 
 CSG 构建过程包括识别环基、分类节点（环上节点/非环节点/接口节点），以及构建输入图到 CSG 的双向映射，用于标签传播。
 

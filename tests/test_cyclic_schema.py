@@ -123,17 +123,17 @@ class TestMultiLayerCSG:
     """Multi-layer CSG construction."""
 
     def test_two_layers(self, triangle):
-        layers = build_multilayer_csg(triangle, K=2)
+        layers = build_multilayer_csg(triangle, L=2)
         assert len(layers) == 2
         for H, cb, info in layers:
             assert isinstance(H, nx.Graph)
 
     def test_k0_returns_empty_list(self, triangle):
-        result = build_multilayer_csg(triangle, K=0)
+        result = build_multilayer_csg(triangle, L=0)
         assert result == []
 
     def test_two_layers_with_mappings(self, triangle):
-        layers, mappings = build_multilayer_csg_with_mappings(triangle, K=2)
+        layers, mappings = build_multilayer_csg_with_mappings(triangle, L=2)
         assert len(layers) == 2
         assert len(mappings) == 2
         for k in range(2):
@@ -144,15 +144,15 @@ class TestMultiLayerCSG:
         """Path graph should produce additional layers with more CSG depth."""
         G = nx.Graph()
         G.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4)])
-        result_k1 = build_multilayer_csg(G, K=1)
-        result_k2 = build_multilayer_csg(G, K=2)
+        result_k1 = build_multilayer_csg(G, L=1)
+        result_k2 = build_multilayer_csg(G, L=2)
         assert result_k1 is not None
 
     def test_layer_k_higher_k_more_or_equal_layers(self):
         G = nx.Graph()
         G.add_edges_from([(0, 1), (1, 2), (0, 2)])
-        layers_k1 = build_multilayer_csg(G, K=1)
-        layers_k2 = build_multilayer_csg(G, K=2)
+        layers_k1 = build_multilayer_csg(G, L=1)
+        layers_k2 = build_multilayer_csg(G, L=2)
         assert len(layers_k2) >= len(layers_k1)
 
 

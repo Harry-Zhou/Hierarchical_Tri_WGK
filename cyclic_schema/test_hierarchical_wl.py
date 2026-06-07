@@ -89,7 +89,7 @@ class TestCycleCanonicalization:
 
 
 # ===========================================================================
-# Identical graph tests (K=0 through K=5)
+# Identical graph tests (L=0 through L=5)
 # ===========================================================================
 
 class TestIdenticalGraphs:
@@ -97,24 +97,24 @@ class TestIdenticalGraphs:
         np.random.seed(42)
         vlabel = np.random.randint(0, 10, example1.number_of_nodes())
         wl1, wl2 = hierarchical_triangular_wl(
-            example1, example1, vlabel, vlabel.copy(), K=0, I=3)
+            example1, example1, vlabel, vlabel.copy(), L=0, I=3)
         assert np.all(wl1 == wl2)
         assert wl1.shape == (26, 4)
 
-    @pytest.mark.parametrize("K", [1, 2, 3])
-    def test_identical_k1_to_k3(self, example1, K):
+    @pytest.mark.parametrize("L", [1, 2, 3])
+    def test_identical_k1_to_k3(self, example1, L):
         np.random.seed(42)
         vlabel = np.random.randint(0, 10, example1.number_of_nodes())
         wl1, wl2 = hierarchical_triangular_wl(
-            example1, example1, vlabel, vlabel.copy(), K=K, I=3)
+            example1, example1, vlabel, vlabel.copy(), L=L, I=3)
         assert np.all(wl1 == wl2)
 
-    @pytest.mark.parametrize("K", [4, 5])
-    def test_identical_k4_k5_stress(self, example1, K):
+    @pytest.mark.parametrize("L", [4, 5])
+    def test_identical_k4_k5_stress(self, example1, L):
         np.random.seed(42)
         vlabel = np.random.randint(0, 10, example1.number_of_nodes())
         wl1, wl2 = hierarchical_triangular_wl(
-            example1, example1, vlabel, vlabel.copy(), K=K, I=2)
+            example1, example1, vlabel, vlabel.copy(), L=L, I=2)
         assert np.all(wl1 == wl2)
 
     def test_identical_triangle_label_permutation(self, triangle):
@@ -122,7 +122,7 @@ class TestIdenticalGraphs:
         labels_a = np.array([5, 10, 15])
         labels_b = np.array([15, 5, 10])
         wl_a, wl_b = hierarchical_triangular_wl(
-            triangle, triangle, labels_a, labels_b, K=1, I=3)
+            triangle, triangle, labels_a, labels_b, L=1, I=3)
         assert _is_isomorphic_wl(wl_a, wl_b)
 
     def test_dict_form_equals_array_form(self, example1):
@@ -131,19 +131,19 @@ class TestIdenticalGraphs:
         labels_dict = {v: int(vlabel[i])
                        for i, v in enumerate(sorted(example1.nodes()))}
         wl_d, _ = hierarchical_triangular_wl(
-            example1, example1, labels_dict, labels_dict, K=1, I=2)
+            example1, example1, labels_dict, labels_dict, L=1, I=2)
         wl_a, _ = hierarchical_triangular_wl(
-            example1, example1, vlabel, vlabel.copy(), K=1, I=2)
+            example1, example1, vlabel, vlabel.copy(), L=1, I=2)
         assert np.all(wl_d == wl_a)
 
     def test_all_k_produce_identical_for_identical(self, example1):
-        """All K=0..3 produce identical labels for identical inputs."""
+        """All L=0..3 produce identical labels for identical inputs."""
         np.random.seed(1)
         vlabel = np.random.randint(0, 10, example1.number_of_nodes())
-        for K in (0, 1, 2, 3):
+        for L in (0, 1, 2, 3):
             wl_a, wl_b = hierarchical_triangular_wl(
-                example1, example1, vlabel, vlabel.copy(), K=K, I=2)
-            assert np.all(wl_a == wl_b), f"K={K} failed"
+                example1, example1, vlabel, vlabel.copy(), L=L, I=2)
+            assert np.all(wl_a == wl_b), f"L={L} failed"
 
 
 # ===========================================================================
@@ -160,7 +160,7 @@ class TestDiscrimination:
         labels6 = np.array([0, 1, 2, 0, 1, 2])
         labels5 = np.array([0, 1, 2, 0, 1])
         wl_c, wl_p = hierarchical_triangular_wl(
-            cycle6, path5, labels6, labels5, K=1, I=3)
+            cycle6, path5, labels6, labels5, L=1, I=3)
         assert not _is_isomorphic_wl(wl_c, wl_p)
 
     def test_triangle_vs_path3(self, triangle):
@@ -169,7 +169,7 @@ class TestDiscrimination:
         path3.add_edges_from([(0, 1), (1, 2)])
         labels = np.array([1, 2, 3])
         wl_tri, wl_path = hierarchical_triangular_wl(
-            triangle, path3, labels, labels, K=1, I=2)
+            triangle, path3, labels, labels, L=1, I=2)
         assert not _is_isomorphic_wl(wl_tri, wl_path)
 
     def test_two_disjoint_triangles_vs_6cycle(self):
@@ -180,7 +180,7 @@ class TestDiscrimination:
         cycle6.add_edges_from((i, (i + 1) % 6) for i in range(6))
         labels = np.array([0, 0, 0, 1, 1, 1])
         wl_tri, wl_cycle = hierarchical_triangular_wl(
-            two_tri, cycle6, labels, labels, K=1, I=2)
+            two_tri, cycle6, labels, labels, L=1, I=2)
         assert not _is_isomorphic_wl(wl_tri, wl_cycle)
 
 
@@ -190,12 +190,12 @@ class TestDiscrimination:
 
 class TestEdgeCases:
     def test_acyclic_graph(self):
-        """Path with no cycles should still work with K>=1."""
+        """Path with no cycles should still work with L>=1."""
         path = nx.Graph()
         path.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 4)])
         labels = np.array([0, 1, 0, 1, 0])
         wl1, wl2 = hierarchical_triangular_wl(
-            path, path, labels, labels.copy(), K=1, I=2)
+            path, path, labels, labels.copy(), L=1, I=2)
         assert np.all(wl1 == wl2)
         assert wl1.shape == (5, 3)
 
@@ -204,7 +204,7 @@ class TestEdgeCases:
         G.add_node(0)
         labels = np.array([42])
         wl1, wl2 = hierarchical_triangular_wl(
-            G, G, labels, labels.copy(), K=1, I=2)
+            G, G, labels, labels.copy(), L=1, I=2)
         assert np.all(wl1 == wl2)
         assert wl1.shape == (1, 3)
 
@@ -212,7 +212,7 @@ class TestEdgeCases:
         G = nx.Graph()
         labels = np.array([], dtype=np.int32)
         wl1, wl2 = hierarchical_triangular_wl(
-            G, G, labels, labels.copy(), K=1, I=2)
+            G, G, labels, labels.copy(), L=1, I=2)
         assert wl1.shape == (0, 3)
 
     def test_non_consecutive_node_ids(self):
@@ -220,16 +220,16 @@ class TestEdgeCases:
         G.add_edges_from([(0, 5), (5, 10), (10, 0)])
         labels = np.array([1, 2, 3])
         wl1, wl2 = hierarchical_triangular_wl(
-            G, G, labels, labels.copy(), K=1, I=2)
+            G, G, labels, labels.copy(), L=1, I=2)
         assert np.all(wl1 == wl2)
 
     def test_k0_on_acyclic(self):
-        """K=0 with acyclic graph — triangulated neighbors WL."""
+        """L=0 with acyclic graph — triangulated neighbors WL."""
         path = nx.Graph()
         path.add_edges_from([(0, 1), (1, 2), (2, 3)])
         labels = np.array([3, 1, 4, 1])
         wl1, wl2 = hierarchical_triangular_wl(
-            path, path, labels, labels.copy(), K=0, I=2)
+            path, path, labels, labels.copy(), L=0, I=2)
         assert np.all(wl1 == wl2)
 
     def test_chord_cycle(self):
@@ -238,18 +238,18 @@ class TestEdgeCases:
         G.add_edges_from([(0, 1), (1, 2), (2, 3), (3, 0), (0, 2)])
         labels = np.array([1, 2, 3, 4])
         wl1, wl2 = hierarchical_triangular_wl(
-            G, G, labels, labels.copy(), K=1, I=2)
+            G, G, labels, labels.copy(), L=1, I=2)
         assert np.all(wl1 == wl2)
         assert wl1.shape == (4, 3)
 
-    @pytest.mark.parametrize("K", [0, 1, 2])
-    def test_k0_and_k1_consistent_ordering(self, K):
-        """Identical graphs with same labels → identical output regardless of K."""
+    @pytest.mark.parametrize("L", [0, 1, 2])
+    def test_k0_and_k1_consistent_ordering(self, L):
+        """Identical graphs with same labels → identical output regardless of L."""
         G = nx.Graph()
         G.add_edges_from([(0, 1), (1, 2), (2, 0)])
         labels = np.array([5, 10, 5])
         wl1, wl2 = hierarchical_triangular_wl(
-            G, G, labels, labels.copy(), K=K, I=2)
+            G, G, labels, labels.copy(), L=L, I=2)
         assert np.all(wl1 == wl2)
 
 
@@ -262,7 +262,7 @@ class TestMonotonicity:
         np.random.seed(42)
         vlabel = np.random.randint(0, 10, example1.number_of_nodes())
         wl1, wl2 = hierarchical_triangular_wl(
-            example1, example1, vlabel, vlabel.copy(), K=2, I=4)
+            example1, example1, vlabel, vlabel.copy(), L=2, I=4)
         for col in range(1, wl1.shape[1]):
             assert np.all(wl1[:, col] >= wl1[:, col - 1])
             assert np.all(wl2[:, col] >= wl2[:, col - 1])
@@ -275,13 +275,13 @@ class TestMonotonicity:
 class TestErrorHandling:
     def test_negative_k(self, triangle):
         vlabel = np.array([1, 2, 3])
-        with pytest.raises(ValueError, match="K must be >= 0"):
-            hierarchical_triangular_wl(triangle, triangle, vlabel, vlabel, K=-1, I=2)
+        with pytest.raises(ValueError, match="L must be >= 0"):
+            hierarchical_triangular_wl(triangle, triangle, vlabel, vlabel, L=-1, I=2)
 
     def test_zero_iterations(self, triangle):
         vlabel = np.array([1, 2, 3])
         with pytest.raises(ValueError, match="I must be >= 1"):
-            hierarchical_triangular_wl(triangle, triangle, vlabel, vlabel, K=1, I=0)
+            hierarchical_triangular_wl(triangle, triangle, vlabel, vlabel, L=1, I=0)
 
 
 # ===========================================================================
@@ -293,7 +293,7 @@ class TestEdgeLabels:
         vlabel = np.array([1, 2, 3])
         elabel = {(0, 1): 10, (1, 2): 20, (0, 2): 10}
         vwl1, vwl2, ewl1, ewl2 = hierarchical_triangular_wl_with_edges(
-            triangle, triangle, vlabel, vlabel, elabel, elabel, K=1, I=3)
+            triangle, triangle, vlabel, vlabel, elabel, elabel, L=1, I=3)
         assert np.all(vwl1 == vwl2)
         assert np.all(ewl1 == ewl2)
         assert vwl1.shape == (3, 4)
@@ -304,15 +304,15 @@ class TestEdgeLabels:
         elabel_a = {(0, 1): 10, (1, 2): 10, (0, 2): 10}
         elabel_b = {(0, 1): 10, (1, 2): 20, (0, 2): 10}
         vwl_a, vwl_b, _, _ = hierarchical_triangular_wl_with_edges(
-            triangle, triangle, vlabel, vlabel, elabel_a, elabel_b, K=1, I=3)
+            triangle, triangle, vlabel, vlabel, elabel_a, elabel_b, L=1, I=3)
         assert not np.all(vwl_a == vwl_b)
 
-    @pytest.mark.parametrize("K", [0, 1, 2])
-    def test_edge_k0_k1_k2(self, triangle, K):
+    @pytest.mark.parametrize("L", [0, 1, 2])
+    def test_edge_k0_k1_k2(self, triangle, L):
         vlabel = np.array([1, 2, 3])
         elabel = {(0, 1): 10, (1, 2): 20, (0, 2): 10}
         vwl1, vwl2, ewl1, ewl2 = hierarchical_triangular_wl_with_edges(
-            triangle, triangle, vlabel, vlabel, elabel, elabel, K=K, I=2)
+            triangle, triangle, vlabel, vlabel, elabel, elabel, L=L, I=2)
         assert np.all(vwl1 == vwl2)
         assert np.all(ewl1 == ewl2)
 
@@ -321,9 +321,9 @@ class TestEdgeLabels:
         vlabel = np.array([1, 2, 3])
         elabel = {(0, 1): 0, (1, 2): 0, (0, 2): 0}
         vwl_edge, _, _, _ = hierarchical_triangular_wl_with_edges(
-            triangle, triangle, vlabel, vlabel, elabel, elabel, K=1, I=2)
+            triangle, triangle, vlabel, vlabel, elabel, elabel, L=1, I=2)
         vwl_node, _ = hierarchical_triangular_wl(
-            triangle, triangle, vlabel, vlabel, K=1, I=2)
+            triangle, triangle, vlabel, vlabel, L=1, I=2)
         # Edge histories differ (present vs absent) but node histories should be identical
         assert np.all(vwl_edge == vwl_node)
 
@@ -331,7 +331,7 @@ class TestEdgeLabels:
         vlabel = np.array([1, 2, 3])
         elabel = {(0, 1): 10, (1, 2): 20, (0, 2): 10}
         _, _, ewl1, ewl2 = hierarchical_triangular_wl_with_edges(
-            triangle, triangle, vlabel, vlabel, elabel, elabel, K=1, I=3)
+            triangle, triangle, vlabel, vlabel, elabel, elabel, L=1, I=3)
         for col in range(1, ewl1.shape[1]):
             assert np.all(ewl1[:, col] >= ewl1[:, col - 1])
 
@@ -341,7 +341,7 @@ class TestEdgeLabels:
         vlabel = np.array([1, 2, 3])
         elabel = {(0, 5): 10, (5, 10): 20, (0, 10): 10}
         vwl1, vwl2, ewl1, ewl2 = hierarchical_triangular_wl_with_edges(
-            G, G, vlabel, vlabel, elabel, elabel, K=1, I=2)
+            G, G, vlabel, vlabel, elabel, elabel, L=1, I=2)
         assert np.all(vwl1 == vwl2)
         assert np.all(ewl1 == ewl2)
 
@@ -350,14 +350,14 @@ class TestEdgeLabels:
         elabel = {(0, 1): 10, (1, 2): 20, (0, 2): 10}
         with pytest.raises(ValueError, match="Either both or neither"):
             hierarchical_triangular_wl_with_edges(
-                triangle, triangle, vlabel, vlabel, elabel, None, K=1, I=2)
+                triangle, triangle, vlabel, vlabel, elabel, None, L=1, I=2)
 
     def test_invalid_edge_key(self, triangle):
         vlabel = np.array([1, 2, 3])
         elabel = {(0, 99): 10}  # 99 not in triangle
         with pytest.raises(ValueError, match="not present"):
             hierarchical_triangular_wl_with_edges(
-                triangle, triangle, vlabel, vlabel, elabel, elabel, K=1, I=2)
+                triangle, triangle, vlabel, vlabel, elabel, elabel, L=1, I=2)
 
 
 # ===========================================================================
@@ -369,14 +369,14 @@ class TestUnifiedInterface:
         vlabel = np.array([1, 2, 3])
         g_info = {}
         wl1, wl2 = hierarchical_triangular_wl_unified(
-            g_info, triangle, triangle, vlabel, vlabel, K=1, I=2)
+            g_info, triangle, triangle, vlabel, vlabel, L=1, I=2)
         assert np.all(wl1 == wl2)
 
     def test_unified_el_false(self, triangle):
         vlabel = np.array([1, 2, 3])
         g_info = {"el": False}
         wl1, wl2 = hierarchical_triangular_wl_unified(
-            g_info, triangle, triangle, vlabel, vlabel, K=1, I=2)
+            g_info, triangle, triangle, vlabel, vlabel, L=1, I=2)
         assert np.all(wl1 == wl2)
 
     def test_unified_el_true(self, triangle):
@@ -384,16 +384,16 @@ class TestUnifiedInterface:
         elabel = {(0, 1): 10, (1, 2): 20, (0, 2): 10}
         g_info = {"el": True}
         wl1, wl2 = hierarchical_triangular_wl_unified(
-            g_info, triangle, triangle, vlabel, vlabel, elabel, elabel, K=1, I=2)
+            g_info, triangle, triangle, vlabel, vlabel, elabel, elabel, L=1, I=2)
         assert np.all(wl1 == wl2)
 
-    @pytest.mark.parametrize("K", [0, 1])
-    def test_unified_k0_k1(self, triangle, K):
+    @pytest.mark.parametrize("L", [0, 1])
+    def test_unified_k0_k1(self, triangle, L):
         vlabel = np.array([1, 2, 3])
         elabel = {(0, 1): 10, (1, 2): 20, (0, 2): 10}
         g_info = {"el": True}
         wl1, wl2 = hierarchical_triangular_wl_unified(
-            g_info, triangle, triangle, vlabel, vlabel, elabel, elabel, K=K, I=2)
+            g_info, triangle, triangle, vlabel, vlabel, elabel, elabel, L=L, I=2)
         assert np.all(wl1 == wl2)
 
     def test_unified_integration_with_example1(self, example1):
@@ -402,7 +402,7 @@ class TestUnifiedInterface:
         vlabel = np.random.randint(0, 10, example1.number_of_nodes())
         g_info = {"el": False}
         wl1, wl2 = hierarchical_triangular_wl_unified(
-            g_info, example1, example1, vlabel, vlabel.copy(), K=2, I=3)
+            g_info, example1, example1, vlabel, vlabel.copy(), L=2, I=3)
         assert np.all(wl1 == wl2)
         assert wl1.shape == (26, 4)
 
@@ -432,7 +432,7 @@ class TestStep1Mappings:
     def test_multi_layer_mappings_consistent(self, example1):
         """Each CSG layer should have valid mappings from its lower graph."""
         from cyclic_schema import build_multilayer_csg_with_mappings
-        layers, mappings = build_multilayer_csg_with_mappings(example1, K=2)
+        layers, mappings = build_multilayer_csg_with_mappings(example1, L=2)
         assert len(layers) == 2
         assert len(mappings) == 2
         for k, (csg_to_lower, lower_to_csg) in enumerate(mappings):
@@ -589,16 +589,16 @@ class TestMultiLayer:
         G.add_edges_from([(0, 1), (1, 2), (0, 2), (3, 4), (4, 5), (3, 5)])
         labels = np.array([0, 1, 2, 0, 1, 2])
         wl1, wl2 = hierarchical_triangular_wl(
-            G, G, labels, labels.copy(), K=1, I=2)
+            G, G, labels, labels.copy(), L=1, I=2)
         assert np.all(wl1 == wl2)
 
     def test_k0_k1_same_initial(self, triangle):
-        """K=0 and K=1 should both start with same initial labels."""
+        """L=0 and L=1 should both start with same initial labels."""
         vlabel = np.array([5, 10, 15])
         wl_k0, _ = hierarchical_triangular_wl(
-            triangle, triangle, vlabel, vlabel, K=0, I=1)
+            triangle, triangle, vlabel, vlabel, L=0, I=1)
         wl_k1, _ = hierarchical_triangular_wl(
-            triangle, triangle, vlabel, vlabel, K=1, I=1)
+            triangle, triangle, vlabel, vlabel, L=1, I=1)
         # Both should have same initial labels (column 0)
         assert np.all(wl_k0[:, 0] == wl_k1[:, 0])
 

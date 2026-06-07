@@ -30,10 +30,10 @@ class TestCSGThenWL:
     """End-to-end: build CSG then run hierarchical WL."""
 
     def test_csg_to_wl_pipeline(self, triangle):
-        """Build CSG from triangle, then run WL with K=1."""
+        """Build CSG from triangle, then run WL with L=1."""
         vlabel = np.array([1, 2, 3], dtype=np.int32)
         wl1, wl2 = hierarchical_triangular_wl(
-            triangle, triangle, vlabel, vlabel.copy(), K=1, I=3)
+            triangle, triangle, vlabel, vlabel.copy(), L=1, I=3)
         assert np.all(wl1 == wl2)
         assert wl1.shape == (3, 4)
 
@@ -49,27 +49,27 @@ class TestCSGThenWL:
         labels_c6 = np.array([0, 0, 0, 0, 0, 0], dtype=np.int32)
 
         wl_tt, _ = hierarchical_triangular_wl(
-            two_tri, two_tri, labels_tt, labels_tt.copy(), K=1, I=2)
+            two_tri, two_tri, labels_tt, labels_tt.copy(), L=1, I=2)
         wl_c6, _ = hierarchical_triangular_wl(
-            cycle6, cycle6, labels_c6, labels_c6.copy(), K=1, I=2)
+            cycle6, cycle6, labels_c6, labels_c6.copy(), L=1, I=2)
 
         assert not _is_isomorphic_wl(wl_tt, wl_c6)
 
 
 # ============================================================================
-# Integration: K=0 triangulated neighbors path
+# Integration: L=0 triangulated neighbors path
 # ============================================================================
 
 class TestK0Path:
-    """K=0 uses triangulated neighbors (no CSG layers)."""
+    """L=0 uses triangulated neighbors (no CSG layers)."""
 
     def test_k0_two_nodes(self):
-        """Two connected nodes, K=0."""
+        """Two connected nodes, L=0."""
         G = nx.Graph()
         G.add_edges_from([(0, 1)])
         labels = np.array([5, 10], dtype=np.int32)
         wl1, wl2 = hierarchical_triangular_wl(
-            G, G, labels, labels.copy(), K=0, I=2)
+            G, G, labels, labels.copy(), L=0, I=2)
         assert np.all(wl1 == wl2)
         assert wl1.shape == (2, 3)
 
@@ -77,11 +77,11 @@ class TestK0Path:
         labels = np.array([1, 2, 3], dtype=np.int32)
         wl1, wl2 = hierarchical_triangular_wl(
             non_consecutive_graph, non_consecutive_graph,
-            labels, labels.copy(), K=0, I=2)
+            labels, labels.copy(), L=0, I=2)
         assert np.all(wl1 == wl2)
 
     def test_k0_distinguishes_triangle_from_path(self):
-        """K=0 should still distinguish different structures."""
+        """L=0 should still distinguish different structures."""
         G1 = nx.Graph()
         G1.add_edges_from([(0, 1), (1, 2), (0, 2)])
         G2 = nx.Graph()
@@ -89,25 +89,25 @@ class TestK0Path:
         # Use uniform labels for robust differentiation
         labels = np.ones(3, dtype=np.int32)
         wl1, _ = hierarchical_triangular_wl(
-            G1, G1, labels, labels.copy(), K=0, I=2)
+            G1, G1, labels, labels.copy(), L=0, I=2)
         wl2, _ = hierarchical_triangular_wl(
-            G2, G2, labels, labels.copy(), K=0, I=2)
+            G2, G2, labels, labels.copy(), L=0, I=2)
         assert not _is_isomorphic_wl(wl1, wl2)
 
 
 # ============================================================================
-# Integration: K=0 edge path (triangulated neighbors with edge labels)
+# Integration: L=0 edge path (triangulated neighbors with edge labels)
 # ============================================================================
 
 class TestK0EdgePath:
-    """K=0 with edge labels through edge-aware WL."""
+    """L=0 with edge labels through edge-aware WL."""
 
     def test_k0_edge_identical(self, triangle, triangle_elabel_uniform):
         vlabel = np.array([1, 2, 3], dtype=np.int32)
         vwl1, vwl2, ewl1, ewl2 = hierarchical_triangular_wl_with_edges(
             triangle, triangle, vlabel, vlabel.copy(),
             triangle_elabel_uniform, triangle_elabel_uniform,
-            K=0, I=2)
+            L=0, I=2)
         assert np.all(vwl1 == vwl2)
         assert np.all(ewl1 == ewl2)
 
@@ -117,7 +117,7 @@ class TestK0EdgePath:
         elabel_b = {(0, 1): 10, (1, 2): 99, (0, 2): 10}
         vwl_a, vwl_b, _, _ = hierarchical_triangular_wl_with_edges(
             triangle, triangle, vlabel, vlabel.copy(),
-            elabel_a, elabel_b, K=0, I=2)
+            elabel_a, elabel_b, L=0, I=2)
         assert not np.all(vwl_a == vwl_b)
 
 
@@ -133,26 +133,26 @@ class TestUnifiedDispatchIntegration:
         g_info = {'el': False}
 
         wl_k0, _ = hierarchical_triangular_wl_unified(
-            g_info, triangle, triangle, vlabel, vlabel.copy(), K=0, I=2)
+            g_info, triangle, triangle, vlabel, vlabel.copy(), L=0, I=2)
         wl_k1, _ = hierarchical_triangular_wl_unified(
-            g_info, triangle, triangle, vlabel, vlabel.copy(), K=1, I=2)
+            g_info, triangle, triangle, vlabel, vlabel.copy(), L=1, I=2)
 
         # Same initial column
         assert np.all(wl_k0[:, 0] == wl_k1[:, 0])
-        # Different propagation after iteration 1 (different K value)
+        # Different propagation after iteration 1 (different L value)
         assert wl_k0.shape[1] == wl_k1.shape[1]
 
     def test_unified_k0_node_vs_edge_results_differ(self, triangle):
-        """K=0 should give different results for node vs edge dispatch."""
+        """L=0 should give different results for node vs edge dispatch."""
         vlabel = np.array([1, 2, 3], dtype=np.int32)
         elabel = {(0, 1): 10, (1, 2): 10, (0, 2): 10}
 
         wl_node, _ = hierarchical_triangular_wl_unified(
             {'el': False}, triangle, triangle, vlabel, vlabel.copy(),
-            K=0, I=2)
+            L=0, I=2)
         wl_edge, _ = hierarchical_triangular_wl_unified(
             {'el': True}, triangle, triangle, vlabel, vlabel.copy(),
-            elabel, elabel, K=0, I=2)
+            elabel, elabel, L=0, I=2)
 
         # Edge dispatch adds edge context → should differ from node-only
         assert not np.all(wl_node == wl_edge)
@@ -165,12 +165,12 @@ class TestUnifiedDispatchIntegration:
         # Unified
         unified_vwl, unified_ewl = hierarchical_triangular_wl_unified(
             {'el': True}, triangle, triangle, vlabel, vlabel.copy(),
-            elabel, elabel, K=1, I=2)
+            elabel, elabel, L=1, I=2)
 
         # Direct edge-aware call
         direct_vwl, direct_ewl, _, _ = hierarchical_triangular_wl_with_edges(
             triangle, triangle, vlabel, vlabel.copy(),
-            elabel, elabel, K=1, I=2)
+            elabel, elabel, L=1, I=2)
 
         assert np.all(unified_vwl == direct_vwl)
         assert np.all(unified_ewl == direct_ewl)
@@ -313,10 +313,10 @@ class TestMultiLayerStability:
     """Multi-layer CSG produces deterministic results."""
 
     def test_two_layer_wl(self, triangle):
-        """WL with K=2 runs without error and produces shape-stable output."""
+        """WL with L=2 runs without error and produces shape-stable output."""
         vlabel = np.array([1, 2, 3], dtype=np.int32)
         wl1, wl2 = hierarchical_triangular_wl(
-            triangle, triangle, vlabel, vlabel.copy(), K=2, I=2)
+            triangle, triangle, vlabel, vlabel.copy(), L=2, I=2)
         assert np.all(wl1 == wl2)
         assert wl1.shape == (3, 3)
 
@@ -326,9 +326,9 @@ class TestMultiLayerStability:
         G.add_edges_from([(0, 1), (1, 2), (2, 0)])
         labels = np.array([5, 10, 5], dtype=np.int32)
         results = []
-        for K in (0, 1, 2):
+        for L in (0, 1, 2):
             wl, _ = hierarchical_triangular_wl(
-                G, G, labels, labels.copy(), K=K, I=2)
+                G, G, labels, labels.copy(), L=L, I=2)
             results.append(wl[:, 0])
         # All should start with same initial labels
         for r in results[1:]:
@@ -352,7 +352,7 @@ class TestExistingSelfTests:
         vlabel1 = vlabel.copy()
         vlabel2 = vlabel.copy()
 
-        for K in (1, 2, 3):
+        for L in (1, 2, 3):
             wl1, wl2 = hierarchical_triangular_wl(
-                G1, G2, vlabel1, vlabel2, K=K, I=3)
-            assert np.all(wl1 == wl2), f"K={K} failed for identical graphs"
+                G1, G2, vlabel1, vlabel2, L=L, I=3)
+            assert np.all(wl1 == wl2), f"L={L} failed for identical graphs"

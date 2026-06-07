@@ -9,7 +9,7 @@ HTN-WL 区分能力示例：k-WL 无法区分但 HTN-WL 可以区分的图对
 每个示例包含：
 - 图的构造
 - k-WL 测试（1-WL 到 6-WL）
-- HTN-WL 测试（不同 K, I 参数）
+- HTN-WL 测试（不同 L, I 参数）
 - 可视化：图结构 + WL 标签分布对比
 
 用法：
@@ -261,12 +261,12 @@ def plot_graph_comparison(G1, G2, name1, name2, wl_results, htwn_results, savefi
 
     # ---- 右下：HTN-WL 结果热力图 ----
     ax4 = fig.add_subplot(gs[1, 1])
-    K_values = sorted(set(k for k, i in htwn_results.keys()))
+    L_values = sorted(set(k for k, i in htwn_results.keys()))
     I_values = sorted(set(i for k, i in htwn_results.keys()))
 
     # 构建结果矩阵
-    result_matrix = np.zeros((len(K_values), len(I_values)))
-    for idx_k, k in enumerate(K_values):
+    result_matrix = np.zeros((len(L_values), len(I_values)))
+    for idx_k, k in enumerate(L_values):
         for idx_i, i in enumerate(I_values):
             is_iso = htwn_results.get((k, i), None)
             if is_iso is not None:
@@ -276,9 +276,9 @@ def plot_graph_comparison(G1, G2, name1, name2, wl_results, htwn_results, savefi
     im = ax4.imshow(result_matrix, cmap=cmap, aspect="auto", vmin=0, vmax=1)
 
     # 添加文本标注
-    for idx_k in range(len(K_values)):
+    for idx_k in range(len(L_values)):
         for idx_i in range(len(I_values)):
-            is_iso = htwn_results.get((K_values[idx_k], I_values[idx_i]), None)
+            is_iso = htwn_results.get((L_values[idx_k], I_values[idx_i]), None)
             if is_iso is not None:
                 label = "Isomorphic" if is_iso else "NOT\nIsomorphic"
                 ax4.text(idx_i, idx_k, label, ha="center", va="center",
@@ -286,8 +286,8 @@ def plot_graph_comparison(G1, G2, name1, name2, wl_results, htwn_results, savefi
 
     ax4.set_xticks(range(len(I_values)))
     ax4.set_xticklabels([f"I={i}" for i in I_values])
-    ax4.set_yticks(range(len(K_values)))
-    ax4.set_yticklabels([f"K={k}" for k in K_values])
+    ax4.set_yticks(range(len(L_values)))
+    ax4.set_yticklabels([f"L={k}" for k in L_values])
     ax4.set_xlabel("Iterations (I)", fontsize=11)
     ax4.set_ylabel("Hierarchy Depth (K)", fontsize=11)
     ax4.set_title("HTN-WL Distinguishability", fontsize=12, fontweight="bold")
@@ -318,7 +318,7 @@ def plot_graph_comparison(G1, G2, name1, name2, wl_results, htwn_results, savefi
     return fig
 
 
-def plot_label_distribution(G1, G2, name1, name2, K=1, I=5, savefig=False):
+def plot_label_distribution(G1, G2, name1, name2, L=1, I=5, savefig=False):
     """
     绘制 HTN-WL 标签分布对比图。
 
@@ -327,7 +327,7 @@ def plot_label_distribution(G1, G2, name1, name2, K=1, I=5, savefig=False):
     参数：
         G1, G2: networkx 图
         name1, name2: 图的名称
-        K: CSG 层级深度
+        L: CSG 层级深度
         I: 消息传递迭代次数
         savefig: 是否保存图片
     """
@@ -337,7 +337,7 @@ def plot_label_distribution(G1, G2, name1, name2, K=1, I=5, savefig=False):
     vlabel_np2 = np.ones(G2_int.number_of_nodes(), dtype=int)
 
     wl1, wl2 = hierarchical_triangular_wl(
-        G1_int, G2_int, vlabel_np1, vlabel_np2, K=K, I=I
+        G1_int, G2_int, vlabel_np1, vlabel_np2, L=L, I=I
     )
 
     fig, axes = plt.subplots(2, I + 1, figsize=(20, 8))
@@ -368,13 +368,13 @@ def plot_label_distribution(G1, G2, name1, name2, K=1, I=5, savefig=False):
 
     is_iso = _is_isomorphic_wl(wl1, wl2)
     fig.suptitle(
-        f"HTN-WL Label Evolution (K={K}, I={I}): {name1} vs {name2}\n"
+        f"HTN-WL Label Evolution (L={L}, I={I}): {name1} vs {name2}\n"
         f"HTN-WL Result: {'Isomorphic' if is_iso else 'NOT Isomorphic'}",
         fontsize=13, fontweight="bold",
     )
 
     if savefig:
-        filename = f"htn_wl_labels_{name1.replace(' ', '_')}_vs_{name2.replace(' ', '_')}_K{K}_I{I}.png"
+        filename = f"htn_wl_labels_{name1.replace(' ', '_')}_vs_{name2.replace(' ', '_')}_L{L}_I{I}.png"
         filepath = os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
         fig.savefig(filepath, dpi=150, bbox_inches="tight", facecolor="white")
         print(f"  图片已保存: {filepath}")
@@ -429,15 +429,15 @@ def run_example_1(savefig=False):
     vlabel_np2 = np.ones(G2.number_of_nodes(), dtype=int)
 
     htwn_results = {}
-    for K in [1, 2]:
+    for L in [1, 2]:
         for I in [3, 5]:
             wl1, wl2 = hierarchical_triangular_wl(
-                G1, G2, vlabel_np1, vlabel_np2, K=K, I=I
+                G1, G2, vlabel_np1, vlabel_np2, L=L, I=I
             )
             is_iso = _is_isomorphic_wl(wl1, wl2)
-            htwn_results[(K, I)] = is_iso
+            htwn_results[(L, I)] = is_iso
             status = "同构" if is_iso else "不同构"
-            print(f"  HTN-WL (K={K}, I={I}): {status}")
+            print(f"  HTN-WL (L={L}, I={I}): {status}")
 
     # 可视化
     print(f"\n[可视化]")
@@ -451,7 +451,7 @@ def run_example_1(savefig=False):
     plot_label_distribution(
         G_shrikhande, G_rooks,
         "Shrikhande", "Rook",
-        K=1, I=5,
+        L=1, I=5,
         savefig=savefig,
     )
 
@@ -494,15 +494,15 @@ def run_example_2(savefig=False):
     vlabel_np2 = np.ones(G2_int.number_of_nodes(), dtype=int)
 
     htwn_results = {}
-    for K in [1, 2]:
+    for L in [1, 2]:
         for I in [3, 5]:
             wl1, wl2 = hierarchical_triangular_wl(
-                G1_int, G2_int, vlabel_np1, vlabel_np2, K=K, I=I
+                G1_int, G2_int, vlabel_np1, vlabel_np2, L=L, I=I
             )
             is_iso = _is_isomorphic_wl(wl1, wl2)
-            htwn_results[(K, I)] = is_iso
+            htwn_results[(L, I)] = is_iso
             status = "同构" if is_iso else "不同构"
-            print(f"  HTN-WL (K={K}, I={I}): {status}")
+            print(f"  HTN-WL (L={L}, I={I}): {status}")
 
     # 可视化
     print(f"\n[可视化]")
@@ -516,7 +516,7 @@ def run_example_2(savefig=False):
     plot_label_distribution(
         G1, G2,
         "CFI G1", "CFI G2",
-        K=1, I=5,
+        L=1, I=5,
         savefig=savefig,
     )
 
@@ -556,15 +556,15 @@ def run_example_3(savefig=False):
     vlabel_np2 = np.ones(G2_int.number_of_nodes(), dtype=int)
 
     htwn_results = {}
-    for K in [1, 2]:
+    for L in [1, 2]:
         for I in [3, 5]:
             wl1, wl2 = hierarchical_triangular_wl(
-                G1_int, G2_int, vlabel_np1, vlabel_np2, K=K, I=I
+                G1_int, G2_int, vlabel_np1, vlabel_np2, L=L, I=I
             )
             is_iso = _is_isomorphic_wl(wl1, wl2)
-            htwn_results[(K, I)] = is_iso
+            htwn_results[(L, I)] = is_iso
             status = "同构" if is_iso else "不同构"
-            print(f"  HTN-WL (K={K}, I={I}): {status}")
+            print(f"  HTN-WL (L={L}, I={I}): {status}")
 
     print(f"\n[邻域连通性分析]")
     for v in G1.nodes():
@@ -589,7 +589,7 @@ def run_example_3(savefig=False):
     plot_label_distribution(
         G1, G2,
         "C3∪C3", "C6",
-        K=1, I=5,
+        L=1, I=5,
         savefig=savefig,
     )
 

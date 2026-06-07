@@ -376,19 +376,19 @@ def build_example1_graph():
 
 
 def build_multilayer_csg(
-    G, K=1, cb_prefix_func=None
+    G, L=1, cb_prefix_func=None
 ):
     """
     Build multi-layer cyclic schematic graph hierarchy.
 
-    For K >= 1, produces layers [CSG^1, CSG^2, ..., CSG^K].
+    For L >= 1, produces layers [CSG^1, CSG^2, ..., CSG^L].
     Each layer is a (H, cycle_basis, info) tuple.
 
     Parameters
     ----------
     G : networkx.Graph
         Input graph.
-    K : int
+    L : int
         Number of CSG layers (default: 1).
     cb_prefix_func : callable, optional
         Function that takes layer index (1-based) and returns prefix.
@@ -405,7 +405,7 @@ def build_multilayer_csg(
     layers = []
     current_G = G
 
-    for i in range(1, K + 1):
+    for i in range(1, L + 1):
         H, cycle_basis, info = cyclic_schematic_graph(current_G, cb_prefix=cb_prefix_func(i))
         layers.append((H, cycle_basis, info))
         current_G = H
@@ -413,7 +413,7 @@ def build_multilayer_csg(
     return layers
 
 
-def build_multilayer_csg_with_mappings(G, K=1, cb_prefix_func=None):
+def build_multilayer_csg_with_mappings(G, L=1, cb_prefix_func=None):
     """
     Build multi-layer CSG hierarchy AND the inter-layer mappings.
 
@@ -425,7 +425,7 @@ def build_multilayer_csg_with_mappings(G, K=1, cb_prefix_func=None):
     ----------
     G : networkx.Graph
         Input graph.
-    K : int
+    L : int
         Number of CSG layers (default: 1).
     cb_prefix_func : callable, optional
         Function that takes layer index (1-based) and returns prefix.
@@ -439,12 +439,12 @@ def build_multilayer_csg_with_mappings(G, K=1, cb_prefix_func=None):
         Element k maps between layer k-1 and layer k
         (where layer 0 = input graph G).
     """
-    layers = build_multilayer_csg(G, K, cb_prefix_func)
+    layers = build_multilayer_csg(G, L, cb_prefix_func)
 
     mappings = []
     current_lower = G
 
-    for k in range(K):
+    for k in range(L):
         H_k, cb_k, _ = layers[k]
 
         csg_to_lower = build_csg_to_input_mapping(H_k, cb_k)

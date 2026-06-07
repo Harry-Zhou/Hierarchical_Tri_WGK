@@ -369,6 +369,7 @@ def _cycle_to_f2_vector(
     cycle_nodes: Sequence[Hashable],
     edges_in_order: List[Tuple[Hashable, Hashable]],
     edge_index: Dict[Tuple[Hashable, Hashable], int],
+    cid_of: Dict[Hashable, int],
 ) -> List[int]:
     """
     Encode a cycle as a vector in F_2^{|E|}.
@@ -377,16 +378,14 @@ def _cycle_to_f2_vector(
     ``edges_in_order``) belongs to the cycle.
 
     Edges are matched as undirected — both ``(u, v)`` and ``(v, u)`` map to the
-    same canonical key.  Note: the canonical key here is the *same* one used
-    in ``edge_index`` (i.e. lexicographic in raw node id, not in canonical
-    id) — this is fine because we only need a consistent injective mapping
-    between edge pairs and indices.
+    same canonical key.  The canonical key is oriented by canonical vertex id
+    (``cid_of``) to match the orientation used in ``edges_in_order``.
     """
     cycle_edge_set = set()
     n = len(cycle_nodes)
     for i in range(n):
         u, v = cycle_nodes[i], cycle_nodes[(i + 1) % n]
-        if u <= v:
+        if cid_of[u] <= cid_of[v]:
             key = (u, v)
         else:
             key = (v, u)
@@ -467,14 +466,14 @@ def canonical_mcb(
     edges_in_order: List[Tuple[Hashable, Hashable]] = []
     seen_edges: set = set()
     for u, v in G.edges():
-        if u <= v:
+        if cid_of[u] <= cid_of[v]:
             key = (u, v)
         else:
             key = (v, u)
         if key not in seen_edges:
             seen_edges.add(key)
             edges_in_order.append(key)
-    edges_in_order.sort(key=lambda e: (e[0], e[1]))
+    edges_in_order.sort(key=lambda e: (cid_of[e[0]], cid_of[e[1]]))
     edge_index = {e: i for i, e in enumerate(edges_in_order)}
 
     # Process each connected component independently.  For each component:
@@ -498,7 +497,7 @@ def canonical_mcb(
         # Build F2 vectors
         f2_vecs: List[List[int]] = []
         for _length, _code, cycle_nodes in candidates:
-            f2_vecs.append(_cycle_to_f2_vector(cycle_nodes, edges_in_order, edge_index))
+            f2_vecs.append(_cycle_to_f2_vector(cycle_nodes, edges_in_order, edge_index, cid_of))
         kept_indices = _gauss_rank_incremental(f2_vecs)
         mu_target = sub_g.number_of_edges() - sub_g.number_of_nodes() + 1
         # ``mu`` is the cycle rank; the kept indices give us a basis.

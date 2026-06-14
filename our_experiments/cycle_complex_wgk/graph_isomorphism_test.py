@@ -7,7 +7,7 @@ cur_dir = os.path.dirname(__file__)
 parent_dir = os.path.dirname(cur_dir)
 parent_dir = os.path.dirname(parent_dir)
 sys.path.append(parent_dir)
-from topo_wasserstein_graph_kernel import TopoWassersteinGraphKernel
+from our_experiments.cycle_complex_wgk.topo_wasserstein_graph_kernel import TopoWassersteinGraphKernel
 from hierarchical_tri_wl_tools.hierarchical_cycle_complex_bfs_neighbors import build_vtx_hierarchical_cycle_contexts
 from utils import precomp_node_neighs
 
@@ -72,7 +72,6 @@ def test_graph_isomorphism(graph1_path, graph2_path):
     
     ot_dist_np, wl_sim_np, run_time = topo_wgk.fit_transform(
         dataset_info, graph_list, vlabel_list, edges_list, elabel_list,
-        vtx_hierarchical_cycle_contexts_list, vtx_triangulated_neighbors_list,
         deg_distr_list
     )
     

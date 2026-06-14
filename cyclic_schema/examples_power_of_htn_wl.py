@@ -25,11 +25,12 @@ from itertools import product
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 from matplotlib.colors import ListedColormap
+from matplotlib.patches import Rectangle
 
 # 添加父目录到路径以导入 cyclic_schema
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from cyclic_schema.hierarchical_triangulated_wl import (
+from cyclic_schema.htn_wl import (
     hierarchical_triangular_wl,
     _is_isomorphic_wl,
 )
@@ -252,8 +253,8 @@ def plot_graph_comparison(G1, G2, name1, name2, wl_results, htwn_results, savefi
     ax3.set_yticks([])
     ax3.legend(
         handles=[
-            plt.Rectangle((0, 0), 1, 1, fc="#FF6B6B", label="Cannot distinguish"),
-            plt.Rectangle((0, 0), 1, 1, fc="#4ECDC4", label="Can distinguish"),
+            Rectangle((0, 0), 1, 1, fc="#FF6B6B", label="Cannot distinguish"),
+            Rectangle((0, 0), 1, 1, fc="#4ECDC4", label="Can distinguish"),
         ],
         loc="upper right",
         fontsize=9,
@@ -294,8 +295,8 @@ def plot_graph_comparison(G1, G2, name1, name2, wl_results, htwn_results, savefi
 
     # 图例
     legend_elements = [
-        plt.Rectangle((0, 0), 1, 1, fc="#FF6B6B", label="Isomorphic (cannot distinguish)"),
-        plt.Rectangle((0, 0), 1, 1, fc="#4ECDC4", label="NOT Isomorphic (can distinguish)"),
+        Rectangle((0, 0), 1, 1, fc="#FF6B6B", label="Isomorphic (cannot distinguish)"),
+        Rectangle((0, 0), 1, 1, fc="#4ECDC4", label="NOT Isomorphic (can distinguish)"),
     ]
     ax4.legend(handles=legend_elements, loc="upper right", fontsize=8)
 

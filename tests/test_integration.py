@@ -7,7 +7,7 @@ import networkx as nx
 import numpy as np
 import pytest
 
-from cyclic_schema.hierarchical_triangulated_wl import (
+from cyclic_schema.htn_wl import (
     hierarchical_triangular_wl,
     hierarchical_triangular_wl_with_edges,
     hierarchical_triangular_wl_unified,
@@ -343,7 +343,7 @@ class TestExistingSelfTests:
     """Replicate key self-tests from module __main__ blocks."""
 
     def test_hierarchical_wl_self_test_logic(self):
-        """Replicate the main self-test from hierarchical_triangulated_wl.py."""
+        """Replicate the main self-test from hierarchical_triangular_wl.py."""
         from cyclic_schema import build_example1_graph
         G1 = build_example1_graph()
         G2 = build_example1_graph()

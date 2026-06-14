@@ -19,13 +19,7 @@ from utils import precomp_node_neighs
 from our_experiments.cycle_complex_wgk.topo_wasserstein_graph_kernel import (
     TopoWassersteinGraphKernel,
 )
-from our_experiments.cycle_complex_wgk.graph_isomorphism_test import (
-    build_vtx_triangulated_neighbors,
-)
-from hierarchical_tri_wl_tools.hierarchical_cycle_complex_bfs_neighbors import (
-    build_vtx_hierarchical_cycle_contexts,
-)
-from cyclic_schema.hierarchical_triangulated_wl import (
+from cyclic_schema.htn_wl import (
     hierarchical_triangular_wl_unified,
     hierarchical_triangular_wl,
     hierarchical_triangular_wl_with_edges,
@@ -39,8 +33,6 @@ def _make_path3_graphs():
     edges_list = []
     elabels_list = []
     deg_distr_list = []
-    vtx_hcc_list = []
-    vtx_tn_list = []
 
     for _ in range(3):
         G = nx.path_graph(3)
@@ -51,18 +43,13 @@ def _make_path3_graphs():
         edges_list.append(e)
         deg = vl / vl.sum().astype(np.float32)
         deg_distr_list.append(deg)
-        vtx_hcc_list.append(build_vtx_hierarchical_cycle_contexts(G))
-        vtx_tn_list.append(build_vtx_triangulated_neighbors(G))
 
     # G0 and G2: all edge labels = 1; G1: edge labels differ (1, 2)
     elabels_list.append(np.array([1, 1]))
     elabels_list.append(np.array([1, 2]))
     elabels_list.append(np.array([1, 1]))
 
-    return (
-        graphs, vlabels, edges_list, elabels_list,
-        deg_distr_list, vtx_hcc_list, vtx_tn_list,
-    )
+    return (graphs, vlabels, edges_list, elabels_list, deg_distr_list)
 
 
 def test_unified_wl_dispatch():
@@ -105,16 +92,14 @@ def test_unified_wl_dispatch():
 
 def test_kernel_node_only():
     """Test kernel with node-only (has_el=False) datasets."""
-    graphs, vlabels, edges_list, elabels_list, \
-        deg_distr_list, vtx_hcc_list, vtx_tn_list = _make_path3_graphs()
+    graphs, vlabels, edges_list, elabels_list, deg_distr_list = _make_path3_graphs()
 
     # Test with n_csg_layers=0 (L=0, TN path)
     g_info = {'el': False, 'nl': True}
     kernel = TopoWassersteinGraphKernel(
         n_wl_iters=2, n_csg_layers=0, wl_normalized=False,
     )
-    kernel.fit(g_info, graphs, vlabels, edges_list, elabels_list,
-               vtx_hcc_list, vtx_tn_list, deg_distr_list)
+    kernel.fit(g_info, graphs, vlabels, edges_list, elabels_list, deg_distr_list)
     ot, wl, _ = kernel.transform()
     # All 3 graphs are identical (same path structure, same node labels)
     assert ot.max() < 1e-8, \
@@ -125,8 +110,7 @@ def test_kernel_node_only():
     kernel2 = TopoWassersteinGraphKernel(
         n_wl_iters=2, n_csg_layers=1, wl_normalized=False,
     )
-    kernel2.fit(g_info, graphs, vlabels, edges_list, elabels_list,
-                vtx_hcc_list, vtx_tn_list, deg_distr_list)
+    kernel2.fit(g_info, graphs, vlabels, edges_list, elabels_list, deg_distr_list)
     ot2, wl2, _ = kernel2.transform()
     assert ot2.max() < 1e-8, \
         "Node-only L=1: identical graphs should have zero OT distance"
@@ -135,8 +119,7 @@ def test_kernel_node_only():
 
 def test_kernel_edge_label():
     """Test kernel with edge-label (has_el=True) datasets."""
-    graphs, vlabels, edges_list, elabels_list, \
-        deg_distr_list, vtx_hcc_list, vtx_tn_list = _make_path3_graphs()
+    graphs, vlabels, edges_list, elabels_list, deg_distr_list = _make_path3_graphs()
 
     g_info = {'el': True, 'nl': True}
 
@@ -144,8 +127,7 @@ def test_kernel_edge_label():
     kernel = TopoWassersteinGraphKernel(
         n_wl_iters=2, n_csg_layers=0, wl_normalized=False,
     )
-    kernel.fit(g_info, graphs, vlabels, edges_list, elabels_list,
-               vtx_hcc_list, vtx_tn_list, deg_distr_list)
+    kernel.fit(g_info, graphs, vlabels, edges_list, elabels_list, deg_distr_list)
     ot_el, wl_el, _ = kernel.transform()
 
     # G0 vs G1: different edge labels -> different
@@ -160,8 +142,7 @@ def test_kernel_edge_label():
     kernel2 = TopoWassersteinGraphKernel(
         n_wl_iters=2, n_csg_layers=1, wl_normalized=False,
     )
-    kernel2.fit(g_info, graphs, vlabels, edges_list, elabels_list,
-                vtx_hcc_list, vtx_tn_list, deg_distr_list)
+    kernel2.fit(g_info, graphs, vlabels, edges_list, elabels_list, deg_distr_list)
     ot2, wl2, _ = kernel2.transform()
 
     assert ot2[0, 0] != ot2[0, 1] or wl2[0, 0] != wl2[0, 1], \
@@ -177,16 +158,14 @@ def test_full_matrix_comparison():
     Validates that the same dataset produces different kernel matrices
     when edge labels are present vs absent.
     """
-    graphs, vlabels, edges_list, elabels_list, \
-        deg_distr_list, vtx_hcc_list, vtx_tn_list = _make_path3_graphs()
+    graphs, vlabels, edges_list, elabels_list, deg_distr_list = _make_path3_graphs()
 
     # Edge-label kernel
     g_info_el = {'el': True, 'nl': True}
     kernel_el = TopoWassersteinGraphKernel(
         n_wl_iters=2, n_csg_layers=1, wl_normalized=False,
     )
-    kernel_el.fit(g_info_el, graphs, vlabels, edges_list, elabels_list,
-                  vtx_hcc_list, vtx_tn_list, deg_distr_list)
+    kernel_el.fit(g_info_el, graphs, vlabels, edges_list, elabels_list, deg_distr_list)
     ot_el, wl_el, _ = kernel_el.transform()
 
     # Same graphs, node-only
@@ -194,10 +173,7 @@ def test_full_matrix_comparison():
     kernel_noel = TopoWassersteinGraphKernel(
         n_wl_iters=2, n_csg_layers=1, wl_normalized=False,
     )
-    kernel_noel.fit(
-        g_info_noel, graphs, vlabels, edges_list, elabels_list,
-        vtx_hcc_list, vtx_tn_list, deg_distr_list,
-    )
+    kernel_noel.fit(g_info_noel, graphs, vlabels, edges_list, elabels_list, deg_distr_list)
     ot_noel, wl_noel, _ = kernel_noel.transform()
 
     # The full matrices should differ
@@ -233,22 +209,12 @@ def test_g_info_pass_through():
     deg = vl / vl.sum().astype(np.float32)
     deg_distr_list = [deg, deg, deg]
 
-    vtx_hcc_list = [
-        build_vtx_hierarchical_cycle_contexts(G1)
-        for _ in range(3)
-    ]
-    vtx_tn_list = [
-        build_vtx_triangulated_neighbors(G1)
-        for _ in range(3)
-    ]
-
     # Test with g_info['el']=True (all 3 graphs have same edge labels)
     g_info_el = {'el': True, 'nl': True}
     kernel_el = TopoWassersteinGraphKernel(
         n_wl_iters=2, n_csg_layers=1, wl_normalized=False,
     )
-    kernel_el.fit(g_info_el, graphs, vlabels, edges_list, elabels,
-                  vtx_hcc_list, vtx_tn_list, deg_distr_list)
+    kernel_el.fit(g_info_el, graphs, vlabels, edges_list, elabels, deg_distr_list)
     ot_el, wl_el, _ = kernel_el.transform()
 
     assert ot_el.max() < 1e-8, \

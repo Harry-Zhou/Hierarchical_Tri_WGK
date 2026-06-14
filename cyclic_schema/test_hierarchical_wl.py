@@ -4,7 +4,7 @@ import networkx as nx
 import numpy as np
 import pytest
 
-from cyclic_schema.hierarchical_triangulated_wl import (
+from cyclic_schema.htn_wl import (
     canonicalize_cycle_label,
     compute_initial_label_tuples,
     compute_final_label_tuples,

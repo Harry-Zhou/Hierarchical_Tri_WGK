@@ -549,7 +549,7 @@ $$
 
 ### 5.5 分层消息传递的完整数学描述（代码—形式化一一对应）
 
-本节提供与实现代码 `hierarchical_triangulated_wl.py` **逐函数一一对应**的数学形式化描述。每个子节标注对应的函数名称，使读者可以在代码与数学公式之间无缝切换。
+本节提供与实现代码 `hierarchical_triangular_wl.py` **逐函数一一对应**的数学形式化描述。每个子节标注对应的函数名称，使读者可以在代码与数学公式之间无缝切换。
 
 ---
 
@@ -2314,7 +2314,7 @@ for k_iter in range(1, 6):
 # ============================================================
 # HTN-WL 测试
 # ============================================================
-from cyclic_schema.hierarchical_triangulated_wl import (
+from cyclic_schema.htn_wl import (
     hierarchical_triangular_wl,
     _is_isomorphic_wl,
 )
@@ -2358,7 +2358,7 @@ import numpy as np
 import sys
 sys.path.insert(0, '/home/harryzhou/Hierarchical_Tri_WGK')
 
-from cyclic_schema.hierarchical_triangulated_wl import (
+from cyclic_schema.htn_wl import (
     hierarchical_triangular_wl,
     _is_isomorphic_wl,
 )
@@ -2489,7 +2489,7 @@ CFI 图的构造核心是：两个图在**局部邻域计数**上完全相同（
 ```python
 import networkx as nx
 import numpy as np
-from cyclic_schema.hierarchical_triangulated_wl import (
+from cyclic_schema.htn_wl import (
     hierarchical_triangular_wl, _is_isomorphic_wl,
 )
 

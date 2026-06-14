@@ -13,7 +13,7 @@ parent_dir = os.path.dirname(cur_dir)
 parent_dir = os.path.dirname(parent_dir)
 sys.path.append(parent_dir)
 from utils import get_start_end_indices, precomp_node_neighs, get_recommended_nproc
-from cyclic_schema.hierarchical_triangulated_wl import hierarchical_triangular_wl_unified
+from cyclic_schema.htn_wl import hierarchical_triangular_wl_unified
 
 
 def _build_elabel_dict(edges, elabels):

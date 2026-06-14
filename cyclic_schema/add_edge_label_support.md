@@ -266,7 +266,7 @@ Must use sorted node order for keys: `(u, v)` where `u <= v`.
 
 ## 5. New Helper Functions
 
-All added to `hierarchical_triangulated_wl.py`:
+All added to `hierarchical_triangular_wl.py`:
 
 ### 5.1 `_compute_edge_context(v, G, elabel_dict, nc)`
 
@@ -366,16 +366,16 @@ Validate edge label dicts:
 
 | File | Change | Lines |
 |------|--------|-------|
-| `cyclic_schema/hierarchical_triangulated_wl.py` | Add 4 helper functions | ~80 new |
-| `cyclic_schema/hierarchical_triangulated_wl.py` | Modify signature (lines 463-470) | ~5 changed |
-| `cyclic_schema/hierarchical_triangulated_wl.py` | Add validation after line 527 | ~15 new |
-| `cyclic_schema/hierarchical_triangulated_wl.py` | Init edge arrays (~line 542) | ~15 new |
-| `cyclic_schema/hierarchical_triangulated_wl.py` | Modify K=0 path (~lines 557-610) | ~20 changed |
-| `cyclic_schema/hierarchical_triangulated_wl.py` | Add pre-processing before iteration loop (~line 661) | ~15 new |
-| `cyclic_schema/hierarchical_triangulated_wl.py` | Modify backward pass at G level (~line 714-734) | ~10 changed |
-| `cyclic_schema/hierarchical_triangulated_wl.py` | Add edge refresh after iteration (~line 744) | ~20 new |
-| `cyclic_schema/hierarchical_triangulated_wl.py` | Modify return (~line 751) | ~5 changed |
-| `cyclic_schema/hierarchical_triangulated_wl.py` | Add edge label tests (~line 1103) | ~50 new |
+| `cyclic_schema/hierarchical_triangular_wl.py` | Add 4 helper functions | ~80 new |
+| `cyclic_schema/hierarchical_triangular_wl.py` | Modify signature (lines 463-470) | ~5 changed |
+| `cyclic_schema/hierarchical_triangular_wl.py` | Add validation after line 527 | ~15 new |
+| `cyclic_schema/hierarchical_triangular_wl.py` | Init edge arrays (~line 542) | ~15 new |
+| `cyclic_schema/hierarchical_triangular_wl.py` | Modify K=0 path (~lines 557-610) | ~20 changed |
+| `cyclic_schema/hierarchical_triangular_wl.py` | Add pre-processing before iteration loop (~line 661) | ~15 new |
+| `cyclic_schema/hierarchical_triangular_wl.py` | Modify backward pass at G level (~line 714-734) | ~10 changed |
+| `cyclic_schema/hierarchical_triangular_wl.py` | Add edge refresh after iteration (~line 744) | ~20 new |
+| `cyclic_schema/hierarchical_triangular_wl.py` | Modify return (~line 751) | ~5 changed |
+| `cyclic_schema/hierarchical_triangular_wl.py` | Add edge label tests (~line 1103) | ~50 new |
 
 Total: ~240 new/changed lines.
 

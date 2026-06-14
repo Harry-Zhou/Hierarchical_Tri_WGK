@@ -19,7 +19,7 @@ The combination is achieved via **Optimal Transport** to compute graph similarit
 Hierarchical_Tri_WGK/
 ├── cyclic_schema/                       # Cyclic schema & hierarchical WL engine
 │   ├── cyclic_schema.py                 # CSG construction, cycle basis, multi-layer CSG, mappings
-│   ├── hierarchical_triangulated_wl.py  # Hierarchical WL (TN + HCC unified dispatch)
+│   ├── hierarchical_triangular_wl.py  # Hierarchical WL (TN + HCC unified dispatch)
 │   ├── test_hierarchical_wl.py          # Comprehensive tests (100+ test cases)
 │   ├── pyproject.toml                   # Package configuration
 │   ├── cfi_3wl_analysis.md              # CFI 3-WL analysis
@@ -84,7 +84,7 @@ The CSG construction identifies cycle bases, classifies nodes (cycle / non-cycle
 
 ### 2. Hierarchical WL Engine
 
-`hierarchical_triangulated_wl.py` is the central orchestrator combining two propagation strategies:
+`hierarchical_triangular_wl.py` is the central orchestrator combining two propagation strategies:
 
 - **Triangulated Neighbors (TN)**: Short-range — looks at cycles formed within a node's neighbor set (chordal cycles), iteration count `I`
 - **Hierarchical Cycle Complexes (HCC)**: Long-range — propagates labels through the multi-layer CSG, depth `K`

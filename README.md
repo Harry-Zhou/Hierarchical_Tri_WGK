@@ -25,7 +25,7 @@ The combination is achieved via **Optimal Transport** to compute graph similarit
 Hierarchical_Tri_WGK/
 ├── cyclic_schema/                       # Cyclic schema & hierarchical WL engine
 │   ├── cyclic_schema.py                 # CSG construction, cycle basis, multi-layer CSG, mappings
-│   ├── hierarchical_triangulated_wl.py  # Hierarchical WL (TN + HCC unified dispatch)
+│   ├── hierarchical_triangular_wl.py  # Hierarchical WL (TN + HCC unified dispatch)
 │   ├── test_hierarchical_wl.py          # Comprehensive tests (100+ test cases)
 │   ├── pyproject.toml                   # Package configuration
 │   ├── cfi_3wl_analysis.md              # CFI 3-WL analysis documentation
@@ -90,7 +90,7 @@ The CSG construction identifies cycle bases, classifies nodes (cycle / non-cycle
 
 #### 2. Hierarchical WL Engine
 
-`hierarchical_triangulated_wl.py` is the central orchestrator combining two propagation strategies:
+`hierarchical_triangular_wl.py` is the central orchestrator combining two propagation strategies:
 
 - **Triangulated Neighbors (TN)**: Short-range — looks at cycles formed within a node's neighbor set (chordal cycles), iteration count `I`
 - **Hierarchical Cycle Complexes (HCC)**: Long-range — propagates labels through the multi-layer CSG, depth `K`
@@ -228,7 +228,7 @@ pytest tests/ cyclic_schema/test_hierarchical_wl.py -v
 Hierarchical_Tri_WGK/
 ├── cyclic_schema/                       # 环式图构建和层级WL引擎
 │   ├── cyclic_schema.py                 # CSG 构建、环基、多层CSG、映射
-│   ├── hierarchical_triangulated_wl.py  # 层级 WL（TN + HCC 统一调度的核心）
+│   ├── hierarchical_triangular_wl.py  # 层级 WL（TN + HCC 统一调度的核心）
 │   ├── test_hierarchical_wl.py          # 详尽测试（100+ 测试用例）
 │   ├── cfi_3wl_analysis.md              # CFI 3-WL 分析文档
 │   ├── cfi_comparison.png               # CFI 对比图
@@ -290,7 +290,7 @@ CSG 构建过程包括识别环基、分类节点（环上节点/非环节点/�
 
 #### 2. 层级 WL 引擎
 
-`hierarchical_triangulated_wl.py` 是核心编排器，组合两种传播策略：
+`hierarchical_triangular_wl.py` 是核心编排器，组合两种传播策略：
 
 - **三角化邻域 (TN)**：短程 — 查看节点邻域内形成的环（弦环），迭代次数 `I`
 - **层级环复形 (HCC)**：长程 — 通过多层 CSG 传播标签，深度 `K`

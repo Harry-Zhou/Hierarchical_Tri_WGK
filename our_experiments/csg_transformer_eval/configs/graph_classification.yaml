@@ -1,0 +1,44 @@
+# CSG-Transformer Graph Classification Configuration
+
+# Model parameters
+model:
+  hidden_dim: 128
+  num_layers: 3
+  num_heads: 4
+  dropout: 0.1
+  L: 3  # CSG layers
+  T: 3  # TNA rounds per layer
+  I: 5  # Global iterations
+  task: graph_classification
+
+# Training parameters
+training:
+  lr: 0.001
+  weight_decay: 0.0001
+  epochs: 200
+  patience: 30
+  min_delta: 0.0001
+  batch_size: 64
+  lambda_reg: 0.0001  # L2 regularization coefficient
+
+# Dataset parameters
+dataset:
+  name: MUTAG
+  root: ./data
+  train_ratio: 0.8
+  val_ratio: 0.1
+
+# Evaluation parameters
+evaluation:
+  metrics:
+    - accuracy
+    - auc_roc
+    - f1_macro
+    - precision_macro
+    - recall_macro
+  num_runs: 10  # Number of runs for cross-validation
+
+# Hardware parameters
+hardware:
+  device: auto  # auto, cuda, cpu
+  num_workers: 4

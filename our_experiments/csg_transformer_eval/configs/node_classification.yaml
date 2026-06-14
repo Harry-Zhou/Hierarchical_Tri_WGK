@@ -1,0 +1,42 @@
+# CSG-Transformer Node Classification Configuration
+
+# Model parameters
+model:
+  hidden_dim: 128
+  num_layers: 3
+  num_heads: 4
+  dropout: 0.1
+  L: 2  # CSG layers (fewer for node classification)
+  T: 2  # TNA rounds per layer
+  I: 3  # Global iterations
+  task: node_classification
+
+# Training parameters
+training:
+  lr: 0.01
+  weight_decay: 0.0005
+  epochs: 200
+  patience: 50
+  min_delta: 0.001
+  batch_size: 1  # Full batch for node classification
+  lambda_reg: 0.0005  # L2 regularization coefficient
+
+# Dataset parameters
+dataset:
+  name: Cora
+  root: ./data
+
+# Evaluation parameters
+evaluation:
+  metrics:
+    - accuracy
+    - auc_roc
+    - f1_macro
+    - precision_macro
+    - recall_macro
+  mask: test_mask  # Which mask to use for evaluation
+
+# Hardware parameters
+hardware:
+  device: auto  # auto, cuda, cpu
+  num_workers: 4

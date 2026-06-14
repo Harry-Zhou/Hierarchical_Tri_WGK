@@ -10,6 +10,8 @@ model:
   T: 2
   I: 3
   task: node_classification
+  use_virtual_node: false
+  use_rel_bias: true
 
 # Training parameters
 training:
@@ -20,11 +22,20 @@ training:
   min_delta: 0.001
   batch_size: 1
   lambda_reg: 0.0005
+  warmup_epochs: 10
+  grad_clip: 1.0
+  drop_edge_rate: 0.0
+  use_ema: false
+  ema_decay: 0.999
+  kd_temperature: 4.0
+  kd_weight: 0.5
 
 # Dataset parameters
 dataset:
   name: Cora
   root: ./data
+  use_rewiring: false
+  rewiring_alpha: 0.15
 
 # Evaluation parameters
 evaluation:
@@ -35,6 +46,11 @@ evaluation:
     - precision_macro
     - recall_macro
   mask: test_mask
+  use_correct_smooth: false
+  correct_iter: 50
+  correct_alpha: 0.5
+  smooth_iter: 50
+  smooth_alpha: 0.5
 
 # Hardware parameters
 hardware:

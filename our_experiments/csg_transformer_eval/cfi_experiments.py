@@ -456,6 +456,11 @@ def evaluate_cfi_distinguishing(
             emb1, logits1 = model(G1, features1)
             emb2, logits2 = model(G2, features2)
             
+            if logits1.dim() == 1:
+                logits1 = logits1.unsqueeze(0)
+            if logits2.dim() == 1:
+                logits2 = logits2.unsqueeze(0)
+            
             pred1 = logits1.argmax().item()
             pred2 = logits2.argmax().item()
             label_assignments.append((pred1, pred2))

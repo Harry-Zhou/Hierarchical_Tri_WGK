@@ -13,6 +13,7 @@ Tests:
 """
 
 import itertools
+import os
 
 import networkx as nx
 from networkx.exception import NetworkXError
@@ -621,6 +622,111 @@ class TestCSGTransformerLayer:
 
 
 # ============================================================================
+# Pooling Tests
+# ============================================================================
+
+class TestPooling:
+    """Test pooling strategies."""
+    
+    def test_mean_pooling(self):
+        """Mean pooling produces correct output shape."""
+        model = CSGTransformer(in_dim=7, hidden_dim=32, out_dim=2, L=2, T=1, I=1, num_heads=2, pooling='mean')
+        G = _make_small_graph()
+        features = torch.randn(G.number_of_nodes(), 7)
+        model.eval()
+        emb, logits = model(G, features)
+        assert emb.shape == (32,)
+        assert logits.shape == (2,)
+    
+    def test_mean_plus_max_pooling(self):
+        """Mean+max pooling produces correct output shape."""
+        model = CSGTransformer(in_dim=7, hidden_dim=32, out_dim=2, L=2, T=1, I=1, num_heads=2, pooling='mean+max')
+        G = _make_small_graph()
+        features = torch.randn(G.number_of_nodes(), 7)
+        model.eval()
+        emb, logits = model(G, features)
+        assert emb.shape == (32,)
+        assert logits.shape == (2,)
+
+
+# ============================================================================
+# Graph Embedding Tests
+# ============================================================================
+
+class TestGraphEmbedding:
+    """Test graph embedding extraction utilities."""
+    
+    def test_get_graph_embedding(self):
+        """get_graph_embedding returns embedding without logits."""
+        model = CSGTransformer(in_dim=7, hidden_dim=32, out_dim=2, L=1, T=1, I=1, num_heads=2)
+        G = _make_small_graph()
+        features = torch.randn(G.number_of_nodes(), 7)
+        emb = model.get_graph_embedding(G, features)
+        assert emb.shape == (32,)
+    
+    def test_compute_graph_similarity(self):
+        """Similarity computation produces valid values."""
+        from cyclic_schema.csg_transformer import compute_graph_similarity
+        emb1 = torch.randn(32)
+        emb2 = torch.randn(32)
+        cos_sim = compute_graph_similarity(emb1, emb2, 'cosine')
+        assert -1.0 <= cos_sim <= 1.0
+        euc_sim = compute_graph_similarity(emb1, emb2, 'euclidean')
+        assert euc_sim <= 0
+        dot_sim = compute_graph_similarity(emb1, emb2, 'dot')
+        assert isinstance(dot_sim, float)
+
+
+# ============================================================================
+# Unified Interface Tests
+# ============================================================================
+
+class TestUnifiedInterface:
+    """Test unified interface function."""
+    
+    def test_csg_transformer_unified(self):
+        """Unified interface returns embeddings for both graphs."""
+        from cyclic_schema.csg_transformer import csg_transformer_unified
+        G = _make_small_graph()
+        n = G.number_of_nodes()
+        features = np.random.randn(n, 7).astype(np.float32)
+        emb1, emb2 = csg_transformer_unified(
+            G, G, features, features, L=1, T=1, I=1,
+            hidden_dim=32, num_heads=2,
+        )
+        assert emb1.shape == (32,)
+        assert emb2.shape == (32,)
+
+
+# ============================================================================
+# Checkpoint Tests
+# ============================================================================
+
+class TestCheckpoint:
+    """Test model checkpoint saving and loading."""
+    
+    def test_save_and_load_checkpoint(self, tmp_path):
+        """Save and load preserves model outputs."""
+        from our_experiments.csg_transformer_eval.model import CSGTransformer as EvalCSGTransformer
+        G = _make_small_graph()
+        n = G.number_of_nodes()
+        features = torch.randn(n, 7)
+        
+        model = EvalCSGTransformer(in_dim=7, hidden_dim=32, out_dim=2, L=1, T=1, I=1, num_heads=2)
+        model.eval()
+        emb_orig, _ = model(G, features)
+        
+        ckpt_path = os.path.join(tmp_path, "test_model.pt")
+        model.save_checkpoint(ckpt_path)
+        
+        loaded = EvalCSGTransformer.load_checkpoint(ckpt_path, map_location='cpu')
+        loaded.eval()
+        emb_loaded, _ = loaded(G, features)
+        
+        assert torch.allclose(emb_orig, emb_loaded, atol=1e-6)
+
+
+# ============================================================================
 # Edge Cases
 # ============================================================================
 
@@ -654,14 +760,15 @@ class TestEdgeCases:
         assert logits.shape == (2,)
 
     def test_noisy_repeated_forward(self):
-        """Multiple forward passes with same model produce different noise."""
+        """Multiple forward passes during training produce different noise."""
         model = CSGTransformer(in_dim=1, hidden_dim=8, out_dim=2, L=1, T=1, I=1, num_heads=2)
         G = nx.Graph()
         G.add_edges_from([(0, 1), (1, 2), (0, 2)])
         features = torch.randn(3, 1)
-        model.eval()
+        # LPE noise is only applied during training (spec §3.3.1)
+        model.train()
         emb1, _ = model(G, features)
         emb2, _ = model(G, features)
         # Different noise injection should give different embeddings
-        # (LPE noise_std=0.01 by default)
+        # (LPE noise_std=0.01 by default during training)
         assert not torch.allclose(emb1, emb2, atol=1e-6)

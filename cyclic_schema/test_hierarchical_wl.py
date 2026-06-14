@@ -561,10 +561,11 @@ class TestBackwardLabelTuples:
         lower_to_higher = {0: ("cb0", "cb1"), 1: ("cb0",), 2: ("cb1",)}
         result = _compute_lower_label_tuples(
             triangle, lower_labels, higher_labels, lower_to_higher)
-        # Node 0: (5,) + sorted([100, 200]) = (5, 100, 200)
-        assert result[0] == (5, 100, 200)
-        # Node 1: (10,) + sorted([100]) = (10, 100)
-        assert result[1] == (10, 100)
+        # Per spec: label tuple = SORT([higher labels])  (no l_v prepended)
+        # Node 0: sorted([100, 200]) = (100, 200)
+        assert result[0] == (100, 200)
+        # Node 1: sorted([100]) = (100,)
+        assert result[1] == (100,)
 
     def test_with_edge_context(self, triangle):
         lower_labels = {0: 5, 1: 10, 2: 15}
@@ -574,8 +575,13 @@ class TestBackwardLabelTuples:
         result = _compute_lower_label_tuples_with_edges(
             triangle, lower_labels, higher_labels,
             lower_to_higher, edge_contexts)
-        # Node 0: (5, ((10, 20),), 100) — ec(v) is a tuple of tuples
-        assert result[0] == (5, ((10, 20),), 100)
+        # Per spec: label tuple = (ec(v),) + SORT([higher labels])
+        # Node 0: (((10, 20),), 100) — ec(v) is a tuple of tuples
+        assert result[0] == (((10, 20),), 100)
+        # Node 1: no higher nodes, no edge context → fallback to (l_v,)
+        assert result[1] == (10,)
+        # Node 2: same as node 1
+        assert result[2] == (15,)
 
 
 # ===========================================================================

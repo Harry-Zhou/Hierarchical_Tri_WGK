@@ -91,7 +91,7 @@ def _canonicalize_cycle(cycle: Sequence) -> Tuple:
     return forward if forward_key <= backward_key else backward
 
 
-def get_cycle_edges(cycle):
+def get_cycle_edges(cycle: Sequence) -> set:
     """
     Convert cycle (node list) to edge set (each edge as frozenset, undirected).
 
@@ -114,7 +114,7 @@ def get_cycle_edges(cycle):
     return edges
 
 
-def get_edge_in_cycle(cycle):
+def get_edge_in_cycle(cycle: Sequence) -> List[Tuple]:
     """
     Convert cycle to list of (u, v) tuple edges (for edge membership checking).
 
@@ -137,7 +137,7 @@ def get_edge_in_cycle(cycle):
     return edges
 
 
-def cyclic_schematic_graph(G, cb_prefix="CB"):
+def cyclic_schematic_graph(G: nx.Graph, cb_prefix: str = "CB") -> Tuple[nx.Graph, List, Dict]:
     """
     Construct cyclic schematic graph from input graph G.
 
@@ -340,7 +340,7 @@ def cyclic_schematic_graph(G, cb_prefix="CB"):
     return H, cycle_basis, info
 
 
-def build_example1_graph():
+def build_example1_graph() -> nx.Graph:
     """
     Build the test graph G1 from notebook example 1.
 
@@ -376,8 +376,8 @@ def build_example1_graph():
 
 
 def build_multilayer_csg(
-    G, L=1, cb_prefix_func=None
-):
+    G: nx.Graph, L: int = 1, cb_prefix_func: Optional[Callable] = None
+) -> List[Tuple[nx.Graph, List, Dict]]:
     """
     Build multi-layer cyclic schematic graph hierarchy.
 
@@ -413,7 +413,7 @@ def build_multilayer_csg(
     return layers
 
 
-def build_multilayer_csg_with_mappings(G, L=1, cb_prefix_func=None):
+def build_multilayer_csg_with_mappings(G: nx.Graph, L: int = 1, cb_prefix_func: Optional[Callable] = None) -> Tuple[List, List]:
     """
     Build multi-layer CSG hierarchy AND the inter-layer mappings.
 
@@ -456,7 +456,7 @@ def build_multilayer_csg_with_mappings(G, L=1, cb_prefix_func=None):
     return layers, mappings
 
 
-def get_node_type(H, node):
+def get_node_type(H: nx.Graph, node: Hashable) -> str:
     """
     Get the type of a node in the CSG.
 
@@ -475,7 +475,7 @@ def get_node_type(H, node):
     return H.nodes[node].get('type', 'unknown')
 
 
-def get_original_nodes_for_csg_node(H, node, cycle_basis):
+def get_original_nodes_for_csg_node(H: nx.Graph, node: Hashable, cycle_basis: List) -> Tuple[Hashable, ...]:
     """
     Get the original graph nodes corresponding to a CSG node.
 
@@ -504,7 +504,7 @@ def get_original_nodes_for_csg_node(H, node, cycle_basis):
         return (node,)
 
 
-def build_csg_to_input_mapping(H, cycle_basis):
+def build_csg_to_input_mapping(H: nx.Graph, cycle_basis: List) -> Dict[Hashable, Tuple]:
     """
     Build mapping from CSG nodes to input graph nodes (Step-1 direction).
 
@@ -531,7 +531,7 @@ def build_csg_to_input_mapping(H, cycle_basis):
     return mapping
 
 
-def build_input_to_csg_mapping(H, cycle_basis, lower_G):
+def build_input_to_csg_mapping(H: nx.Graph, cycle_basis: List, lower_G: nx.Graph) -> Dict[Hashable, Tuple]:
     """
     Build mapping from lower-graph nodes to CSG nodes (Step-1 reverse direction).
 
@@ -587,7 +587,7 @@ def build_input_to_csg_mapping(H, cycle_basis, lower_G):
     return input_to_csg
 
 
-def draw_input_graph(G, ax=None, title="Input Graph", layout_seed=42):
+def draw_input_graph(G: nx.Graph, ax=None, title: str = "Input Graph", layout_seed: int = 42):
     """
     Draw the input graph.
 
@@ -623,8 +623,8 @@ def draw_input_graph(G, ax=None, title="Input Graph", layout_seed=42):
     return fig
 
 
-def draw_cyclic_schematic(H, cycle_basis, info, ax=None,
-                          title="Cyclic Schematic Graph", layout_seed=42):
+def draw_cyclic_schematic(H: nx.Graph, cycle_basis: List, info: Dict, ax=None,
+                          title: str = "Cyclic Schematic Graph", layout_seed: int = 42):
     """
     Draw the cyclic schematic graph with node-type-aware styling.
 
@@ -712,9 +712,9 @@ def draw_cyclic_schematic(H, cycle_basis, info, ax=None,
     return fig
 
 
-def draw_input_graph_with_cycles(G, cycle_basis, ax=None,
-                                 title="Input Graph (cycle-highlighted)",
-                                 layout_seed=42):
+def draw_input_graph_with_cycles(G: nx.Graph, cycle_basis: List, ax=None,
+                                 title: str = "Input Graph (cycle-highlighted)",
+                                 layout_seed: int = 42):
     """
     Draw the input graph with cycle-basis highlighting.
 
@@ -796,7 +796,7 @@ def draw_input_graph_with_cycles(G, cycle_basis, ax=None,
     return fig
 
 
-def draw_side_by_side(G, H, cycle_basis, info, layout_seed=42):
+def draw_side_by_side(G: nx.Graph, H: nx.Graph, cycle_basis: List, info: Dict, layout_seed: int = 42):
     """
     Draw the input graph and the cyclic schematic graph side by side.
 
@@ -828,7 +828,7 @@ def draw_side_by_side(G, H, cycle_basis, info, layout_seed=42):
     return fig
 
 
-def draw_side_by_side_with_cycles(G, H, cycle_basis, info, layout_seed=42):
+def draw_side_by_side_with_cycles(G: nx.Graph, H: nx.Graph, cycle_basis: List, info: Dict, layout_seed: int = 42):
     """
     Draw the input graph (with cycle highlighting) and the CSG side by side.
 
@@ -863,7 +863,7 @@ def draw_side_by_side_with_cycles(G, H, cycle_basis, info, layout_seed=42):
     return fig
 
 
-def print_analysis_info(G, H, cycle_basis, info):
+def print_analysis_info(G: nx.Graph, H: nx.Graph, cycle_basis: List, info: Dict) -> None:
     """
     Print a human-readable analysis report.
 
@@ -957,5 +957,8 @@ if __name__ == "__main__":
             print_analysis_info(G1, H, cycle_basis, info)
             draw_side_by_side_with_cycles(G1, H, cycle_basis, info)
             plt.show()
-    except (ImportError, AttributeError):
-        pass
+    except (ImportError, AttributeError) as _e:
+        if not hasattr(plt, 'show'):
+            pass  # matplotlib not fully loaded — headless environment
+        else:
+            print(f"[Warning] Visualization failed: {_e}")

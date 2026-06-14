@@ -283,21 +283,10 @@ def _fundamental_cycles(
     rest_edges.sort(key=lambda e: (cid_of[e[0]], cid_of[e[1]],
                                     node_sort_key(e[0]), node_sort_key(e[1])))
 
-    # Build parent map for T to find paths quickly
-    parent = {n: None for n in T.nodes()}
-    children = defaultdict(list)
-    root = None
-    for v in T.nodes():
-        if parent[v] is None and T.degree(v) >= 0:
-            # First BFS to identify root
-            pass
-    # Use BFS to build parent/children
-    for v in T.nodes():
-        if all(w not in T.neighbors(v) for w in T.nodes() if w != v):
-            # Not isolated in T
-            pass
-    # Find root (vertex with parent=None in BFS)
-    visited = set()
+    # Build parent map for T to find paths quickly via BFS
+    parent: Dict[Hashable, Optional[Hashable]] = {n: None for n in T.nodes()}
+    children: Dict[Hashable, List[Hashable]] = defaultdict(list)
+    visited: set = set()
     for start in T.nodes():
         if start in visited:
             continue

@@ -13,8 +13,9 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import networkx as nx
 import numpy as np
+import scipy.sparse as sp
 import torch
-from torch_geometric.datasets import TUDataset, Planetoid, Amazon, Coauthor, WebKB
+from torch_geometric.datasets import TUDataset, Planetoid, Amazon, Coauthor, WebKB, WikipediaNetwork
 from torch_geometric.utils import to_networkx
 
 
@@ -42,6 +43,69 @@ NODE_CLASSIFICATION_DATASETS = {
 }
 
 
+def rewire_graph_diffusion(
+    G: nx.Graph,
+    alpha: float = 0.15,
+    k: Optional[int] = None,
+    add_original: bool = True,
+    num_power_iter: int = 10,
+) -> nx.Graph:
+    """
+    Rewire graph using PPR diffusion (DIGL-style).
+    
+    Approximates S = alpha * (I - (1-alpha) * A_norm)^{-1} via power iteration
+    instead of matrix inversion for scalability.
+    
+    Args:
+        G: Input NetworkX graph
+        alpha: Teleport probability for PPR
+        k: Number of top neighbors per node (default: ceil(log2(n)) * 2)
+        add_original: Whether to retain original edges
+        num_power_iter: Number of power iterations for PPR approximation
+        
+    Returns:
+        Rewired NetworkX graph with added diffusion-based edges
+    """
+    n = G.number_of_nodes()
+    if n <= 2:
+        return G.copy()
+    
+    if k is None:
+        k = max(2, int(np.ceil(np.log2(n))) * 2)
+    
+    nodes_sorted = sorted(G.nodes())
+    A = nx.to_scipy_sparse_array(G, nodelist=nodes_sorted, format='csr')
+    
+    I = sp.eye(n, format='csr')
+    A_hat = A + I
+    D_hat = sp.diags(np.array(A_hat.sum(axis=1)).flatten() ** -0.5, format='csr')
+    A_norm = D_hat @ A_hat @ D_hat
+    
+    S = alpha * I
+    current = alpha * I
+    for _ in range(num_power_iter):
+        current = (1.0 - alpha) * current @ A_norm
+        S = S + current
+    
+    G_new = G.copy()
+    if not add_original:
+        G_new.remove_edges_from(list(G_new.edges()))
+    
+    S_dense = S.toarray()
+    for i in range(n):
+        row = S_dense[i]
+        existing = set(G.neighbors(nodes_sorted[i])) | {nodes_sorted[i]} if add_original else {nodes_sorted[i]}
+        candidates = [(j, row[j]) for j in range(n) if nodes_sorted[j] not in existing]
+        candidates.sort(key=lambda x: -x[1])
+        node_i = nodes_sorted[i]
+        for j, _ in candidates[:k]:
+            node_j = nodes_sorted[j]
+            if not G_new.has_edge(node_i, node_j):
+                G_new.add_edge(node_i, node_j)
+    
+    return G_new
+
+
 def _pyg_to_networkx(data: Any) -> nx.Graph:
     """Convert PyG Data object to NetworkX graph."""
     if hasattr(data, 'edge_index') and data.edge_index.numel() > 0:
@@ -53,7 +117,8 @@ def _pyg_to_networkx(data: Any) -> nx.Graph:
 
 
 def load_graph_classification_dataset(
-    name: str, root: str = './data'
+    name: str, root: str = './data',
+    use_rewiring: bool = False, rewiring_alpha: float = 0.15,
 ) -> Tuple[List[Tuple[nx.Graph, torch.Tensor, torch.Tensor]], Dict[str, Any]]:
     """
     Load graph classification dataset.
@@ -61,7 +126,9 @@ def load_graph_classification_dataset(
     Args:
         name: Dataset name (MUTAG, PROTEINS, etc.)
         root: Root directory for data storage
-    
+        use_rewiring: Whether to apply DIGL graph rewiring
+        rewiring_alpha: PPR teleport probability for rewiring
+        
     Returns:
         data_list: List of (G, features, label) tuples
         stats: Dataset statistics dict
@@ -72,6 +139,8 @@ def load_graph_classification_dataset(
     data_list = []
     for data in dataset:
         G = _pyg_to_networkx(data)
+        if use_rewiring:
+            G = rewire_graph_diffusion(G, alpha=rewiring_alpha)
         if hasattr(data, 'x') and data.x is not None and data.num_features > 0:
             features = data.x.float()
         else:
@@ -100,7 +169,8 @@ def load_graph_classification_dataset(
 
 
 def load_node_classification_dataset(
-    name: str, root: str = './data'
+    name: str, root: str = './data',
+    use_rewiring: bool = False, rewiring_alpha: float = 0.15,
 ) -> Tuple[nx.Graph, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor, torch.Tensor]:
     """
     Load node classification dataset.
@@ -108,6 +178,8 @@ def load_node_classification_dataset(
     Args:
         name: Dataset name (Cora, Citeseer, etc.)
         root: Root directory for data storage
+        use_rewiring: Whether to apply DIGL graph rewiring
+        rewiring_alpha: PPR teleport probability for rewiring
     
     Returns:
         G: NetworkX graph
@@ -127,12 +199,14 @@ def load_node_classification_dataset(
     elif name in ['Computers', 'Photo']:
         dataset = Amazon(root=f'{root}/Amazon', name=name)
     elif name in ['Squirrel', 'Chameleon']:
-        dataset = WebKB(root=f'{root}/WebKB', name=name)
+        dataset = WikipediaNetwork(root=f'{root}/WikipediaNetwork', name=name.lower())
     else:
         raise ValueError(f"Dataset {name} not supported")
     
     data = dataset[0]
     G = _pyg_to_networkx(data)
+    if use_rewiring:
+        G = rewire_graph_diffusion(G, alpha=rewiring_alpha)
     
     features = data.x
     labels = data.y

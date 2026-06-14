@@ -407,40 +407,4 @@ def extract_htn_wl_args(
     )
 
 
-# ============================================================================
-# CSG-Transformer integration example
-# ============================================================================
 
-def csg_transformer_example():
-    """
-    Example showing how CSG-Transformer can use this module.
-    
-    This demonstrates the interface that csg_transformer.py should use.
-    """
-    import networkx as nx
-    
-    # Build multi-layer CSG for a pair of graphs
-    G1 = nx.cycle_graph(5)
-    G2 = nx.path_graph(5)
-    
-    paired_csg = build_multilayer_csg_pair(G1, G2, L=2)
-    
-    # Access CSG structure for graph 1
-    csg1 = paired_csg.csg1
-    
-    # Get layers
-    for layer_idx in range(csg1.L):
-        layer_graph = get_layer_graph(csg1, layer_idx + 1)
-        cycle_basis = get_cycle_basis(csg1, layer_idx + 1)
-        mapping = get_mapping(csg1, layer_idx + 1)
-        neighbor_comp = get_neighbor_components(csg1, layer_idx + 1)
-        
-        print(f"Layer {layer_idx + 1}: {layer_graph.number_of_nodes()} nodes")
-    
-    # For CSG-Transformer, you would:
-    # 1. Use get_layer_graph() to get each layer's graph structure
-    # 2. Use get_neighbor_components() for TNA-Attention computation
-    # 3. Use get_mapping() for forward/backward cross-attention
-    # 4. Initialize node embeddings using layer_graph.nodes()
-    
-    return paired_csg

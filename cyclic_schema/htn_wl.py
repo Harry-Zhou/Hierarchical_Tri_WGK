@@ -349,16 +349,19 @@ def _compute_lower_label_tuples(
     """
     Compute final label tuples for lower-graph nodes (Step-2 backward).
 
-    Per the spec:
-      v in V_{G_i} has an initial label list [l_{G_i}(v), ].
-      v also has a tuple of higher-layer (CSG) nodes that 'contain' it.
-      Collect the labels of these higher-layer nodes, SORT them, and
-      append to the initial label list:
+    Per the spec (Step-2 backward):
+      For each node v in V_{G_i}, collect the labels of all higher-layer
+      (CSG) nodes that 'contain' v (via the lower_to_higher mapping).
+      The initial label tuple is:
 
-        final_label_tuple(v) = (l_{G_i}(v),) + SORT([higher labels])
+        final_label_tuple(v) = SORT([L_{CSG}(u) : v belongs to u in V_{CSG}])
 
-    If no higher-layer nodes correspond to v, the final label tuple
-    is just (l_{G_i}(v),).
+      i.e. just the sorted higher-layer labels — WITHOUT prepending
+      l_{G_i}(v).  This differs from earlier versions where l_v was
+      prepended.  The corrected behaviour follows the canonical spec.
+
+      If no higher-layer nodes correspond to v, fall back to (l_v,)
+      so that the node's own label is preserved.
 
     Parameters
     ----------
@@ -381,10 +384,12 @@ def _compute_lower_label_tuples(
         higher_nodes = lower_to_higher.get(v, ())
         l_v = int(lower_labels.get(v, 0))
         if not higher_nodes:
+            # Fallback: preserve node's own label when no CSG context exists
             result[v] = (l_v,)
         else:
+            # Per spec: only the sorted higher-layer labels
             higher_lbls = sorted(int(higher_labels.get(u, 0)) for u in higher_nodes)
-            result[v] = (l_v,) + tuple(higher_lbls)
+            result[v] = tuple(higher_lbls)
     return result
 
 
@@ -506,13 +511,14 @@ def _compute_lower_label_tuples_with_edges(
 
     For a lower-graph node *v*:
 
-        label_tuple(v) = (l_{G_i}(v), ec(v)) + SORT([higher labels])
+        label_tuple(v) = (ec(v),) + SORT([higher labels])
 
     where ``ec(v)`` is the edge context of *v* (computed from incident edge
     labels grouped by triangulated neighbourhood components).
 
-    When ``ec(v)`` is empty the label tuple falls back to the same form as
-    ``_compute_lower_label_tuples``.
+    When ``ec(v)`` is empty the label tuple uses only the sorted higher
+    labels.  If there are neither higher labels nor edge context, fall
+    back to (l_v,).
     """
     result: Dict[Hashable, Tuple] = {}
     for v in lower_G.nodes():
@@ -523,13 +529,13 @@ def _compute_lower_label_tuples_with_edges(
         if not higher_nodes and not ec_v:
             result[v] = (l_v,)
         elif not higher_nodes:
-            result[v] = (l_v, ec_v)
+            result[v] = (ec_v,)
         elif not ec_v:
             higher_lbls = sorted(int(higher_labels.get(u, 0)) for u in higher_nodes)
-            result[v] = (l_v,) + tuple(higher_lbls)
+            result[v] = tuple(higher_lbls)
         else:
             higher_lbls = sorted(int(higher_labels.get(u, 0)) for u in higher_nodes)
-            result[v] = (l_v, ec_v) + tuple(higher_lbls)
+            result[v] = (ec_v,) + tuple(higher_lbls)
     return result
 
 

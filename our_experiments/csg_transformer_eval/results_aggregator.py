@@ -63,9 +63,19 @@ def load_graph_classification_results(
     rows = []
     for dirpath, _, filenames in os.walk(graph_dir):
         for f in filenames:
-            if not f.endswith('_cv_results.csv') and not f.endswith('_graph_classification.csv'):
+            # Match output patterns from train.py: {dataset}_graph_classification_results.csv
+            # and {dataset}_graph_classification_summary.csv
+            if not f.endswith('_results.csv') and not f.endswith('_summary.csv'):
                 continue
-            ds_name = f.replace('_cv_results.csv', '').replace('_graph_classification.csv', '')
+            if 'graph_classification' not in f:
+                continue
+            # Skip the aggregated outputs to avoid recursion
+            if f.startswith('graph_classification_'):
+                continue
+            # Extract dataset name from e.g. "MUTAG_graph_classification_results.csv"
+            ds_name = f.replace('_graph_classification_results.csv', '').replace('_graph_classification_summary.csv', '')
+            if not ds_name:
+                continue
             try:
                 df = pd.read_csv(os.path.join(dirpath, f))
             except Exception as e:
@@ -336,65 +346,86 @@ def generate_cfi_summary(
 # Master Aggregation
 # ============================================================================
 
-def aggregate_all(output_dir: str) -> Tuple[Dict[str, Any], List[str]]:
-    """Load all results and produce combined summary."""
+MODE_KEYS = {
+    'graph': 'graph_classification',
+    'node': 'node_classification',
+    'ablation': 'ablation',
+    'cfi': 'cfi',
+}
+
+def aggregate_all(output_dir: str, mode: Optional[str] = None) -> Tuple[Dict[str, Any], List[str]]:
+    """Load results and produce combined summary.
+
+    Args:
+        output_dir: Directory containing experiment outputs
+        mode: Optional filter — 'graph', 'node', 'ablation', 'cfi', or None for all
+
+    Returns:
+        output: Dict of results keyed by category
+        missing: List of categories with no results found
+    """
     print(f"Aggregating results from: {output_dir}")
     print(f"Timestamp: {datetime.now().isoformat()}")
+    if mode:
+        print(f"Mode: {mode}")
     print("=" * 60)
 
     output = {}
     missing = []
 
-    # Graph classification
-    graph_df = load_graph_classification_results(output_dir)
-    if not graph_df.empty:
-        graph_summary = generate_graph_classification_summary(graph_df)
-        output['graph_classification'] = {
-            'raw': graph_df,
-            'summary': graph_summary,
-        }
-        print(f"\nGraph Classification: {len(graph_summary)} datasets loaded")
-    else:
-        missing.append('graph_classification')
-        print("\nGraph Classification: no results found")
+    sections = [
+        ('graph_classification', 'Graph Classification',
+         load_graph_classification_results, _finalize_graph),
+        ('node_classification', 'Node Classification',
+         load_node_classification_results, _finalize_node),
+        ('ablation', 'Ablation Study',
+         load_ablation_results, _finalize_ablation),
+        ('cfi', 'CFI Experiments',
+         load_cfi_results, _finalize_cfi),
+    ]
 
-    # Node classification
-    node_df = load_node_classification_results(output_dir)
-    if not node_df.empty:
-        node_summary = generate_node_classification_summary(node_df)
-        output['node_classification'] = {
-            'raw': node_df,
-            'summary': node_summary,
-        }
-        print(f"Node Classification: {len(node_summary)} datasets loaded")
-    else:
-        missing.append('node_classification')
-        print("Node Classification: no results found")
+    if mode and mode in MODE_KEYS:
+        target_key = MODE_KEYS[mode]
+        sections = [(k, label, loader, finalizer)
+                     for k, label, loader, finalizer in sections
+                     if k == target_key]
 
-    # Ablation
-    ablation_df = load_ablation_results(output_dir)
-    if not ablation_df.empty:
-        output['ablation'] = {'raw': ablation_df}
-        print(f"Ablation Study: {len(ablation_df)} rows loaded")
-    else:
-        missing.append('ablation')
-        print("Ablation Study: no results found")
-
-    # CFI
-    cfi_results = load_cfi_results(output_dir)
-    if cfi_results:
-        cfi_summary = generate_cfi_summary(cfi_results)
-        output['cfi'] = {
-            'raw': cfi_results,
-            'summary': cfi_summary,
-        }
-        metric_count = sum(len(v) if isinstance(v, dict) else 1 for v in cfi_results.values())
-        print(f"CFI Experiments: {metric_count} metrics loaded")
-    else:
-        missing.append('cfi')
-        print("CFI Experiments: no results found")
+    for key, label, loader, finalizer in sections:
+        result = loader(output_dir)
+        if result is not None and not (_is_empty_dataframe(result)):
+            output[key] = finalizer(result)
+            print(f"\n{label}: loaded")
+        else:
+            missing.append(key)
+            print(f"\n{label}: no results found")
 
     return output, missing
+
+
+def _is_empty_dataframe(result) -> bool:
+    """Check if a result is an empty DataFrame (or falsy)."""
+    if isinstance(result, pd.DataFrame):
+        return result.empty
+    return not result
+
+
+def _finalize_graph(df: pd.DataFrame) -> Dict:
+    summary = generate_graph_classification_summary(df)
+    return {'raw': df, 'summary': summary}
+
+
+def _finalize_node(df: pd.DataFrame) -> Dict:
+    summary = generate_node_classification_summary(df)
+    return {'raw': df, 'summary': summary}
+
+
+def _finalize_ablation(df: pd.DataFrame) -> Dict:
+    return {'raw': df}
+
+
+def _finalize_cfi(results: Dict) -> Dict:
+    summary = generate_cfi_summary(results)
+    return {'raw': results, 'summary': summary}
 
 
 def print_summary(output: Dict[str, Any]) -> None:
@@ -557,10 +588,9 @@ def main():
     save_dir = args.save_dir or os.path.join(output_dir, 'aggregated')
 
     if args.mode != 'all':
-        # TODO: support per-mode loading
-        print(f"Mode {args.mode} selected (aggregating all for now)")
+        print(f"Mode '{args.mode}' selected (filtering aggregation)")
 
-    output, missing = aggregate_all(output_dir)
+    output, missing = aggregate_all(output_dir, mode=args.mode if args.mode != 'all' else None)
 
     if args.print:
         print_summary(output)

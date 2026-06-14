@@ -126,6 +126,9 @@ def main():
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--pe_type', type=str, default='composite')
     parser.add_argument('--attn_mode', type=str, default='adaptive')
+    parser.add_argument('--pooling', type=str, default='mean',
+                        choices=['mean', 'mean+max'])
+    parser.add_argument('--warmup_epochs', type=int, default=10)
     parser.add_argument('--cfi_pairs', type=int, default=100,
                         help='Number of CFI graph pairs')
 
@@ -156,6 +159,9 @@ def main():
         'seed': args.seed,
         'pe_type': args.pe_type,
         'attn_mode': args.attn_mode,
+        'pooling': args.pooling,
+        'warmup_epochs': args.warmup_epochs,
+        'grad_clip': 1.0,
     }
 
     save_dir = _DEFAULT_OUTPUT_DIR
@@ -191,7 +197,7 @@ def main():
         print("CFI EXPERIMENTS")
         print("=" * 70)
         cfi_config = base_config.copy()
-        cfi_config.update({'in_dim': 2, 'epochs': 100})
+        cfi_config.update({'in_dim': 10, 'out_dim': 2, 'epochs': 100})
         run_all_cfi_experiments(
             cfi_config, device,
             os.path.join(save_dir, 'cfi'),

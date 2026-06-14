@@ -71,4 +71,20 @@ from .htn_wl import (
     compute_final_label_tuples,
 )
 
-# (htn_wl is the canonical module; hierarchical_triangular_wl.py was merged)
+from .csg_transformer import (
+    CSGTransformer,
+    CSGTransformerLayer,
+    TNAAttention,
+    SparseGlobalAttention,
+    ForwardCrossAttention,
+    BackwardCrossAttention,
+    LaplacianPositionalEncoding,
+    RandomWalkStructuralEncoding,
+    StructuralEncoding,
+    CompositePositionalEncoding,
+    build_model_from_config,
+    csg_transformer_unified,
+    compute_graph_similarity,
+)
+
+# (htn_wl is the canonical implementation module; hierarchical_triangular_wl.py at project root re-exports)

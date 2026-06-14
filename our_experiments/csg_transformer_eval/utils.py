@@ -3,12 +3,13 @@ Utility functions for CSG-Transformer evaluation.
 """
 
 import torch
+import torch.nn as nn
 import random
 import numpy as np
-import os
+from typing import Optional, Tuple
 
 
-def set_seed(seed=42):
+def set_seed(seed: int = 42) -> None:
     """Set random seed for reproducibility."""
     random.seed(seed)
     np.random.seed(seed)
@@ -18,7 +19,7 @@ def set_seed(seed=42):
     torch.backends.cudnn.benchmark = False
 
 
-def get_device():
+def get_device() -> torch.device:
     """Get available device."""
     if torch.cuda.is_available():
         return torch.device('cuda')
@@ -26,12 +27,12 @@ def get_device():
         return torch.device('cpu')
 
 
-def count_parameters(model):
+def count_parameters(model: nn.Module) -> int:
     """Count total number of trainable parameters."""
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-def save_checkpoint(model, optimizer, epoch, val_acc, filepath):
+def save_checkpoint(model: nn.Module, optimizer: torch.optim.Optimizer, epoch: int, val_acc: float, filepath: str) -> None:
     """Save model checkpoint."""
     torch.save({
         'epoch': epoch,
@@ -41,7 +42,7 @@ def save_checkpoint(model, optimizer, epoch, val_acc, filepath):
     }, filepath)
 
 
-def load_checkpoint(filepath, model, optimizer=None):
+def load_checkpoint(filepath: str, model: nn.Module, optimizer: Optional[torch.optim.Optimizer] = None) -> Tuple[int, float]:
     """Load model checkpoint."""
     checkpoint = torch.load(filepath)
     model.load_state_dict(checkpoint['model_state_dict'])

@@ -51,6 +51,9 @@ our_experiments/cache/
 .pytest_cache/
 .sisyphus/
 
+# Data
+data/
+
 # History (backup files)
 .history/
 

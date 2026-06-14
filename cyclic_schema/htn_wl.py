@@ -1,6 +1,11 @@
 """
 Hierarchical Triangulated Weisfeiler-Lehman Algorithm.
 
+Canonical implementation module for the HTN-WL algorithm.
+The former :mod:`hierarchical_triangular_wl` was merged into this module;
+all public symbols are also available via :mod:`cyclic_schema.htn_wl`
+directly. New code should ``from cyclic_schema.htn_wl import ...``.
+
 Implements a multi-layer graph isomorphism-testing algorithm based on
 cyclic schematic graphs (CSG). The algorithm performs:
 
@@ -41,6 +46,11 @@ from .cyclic_schema import (
     get_node_type,
     node_sort_key,
 )
+from .multilayer_csg import (
+    _precompute_neighbor_components,
+    build_multilayer_csg_pair,
+    extract_htn_wl_args,
+)
 
 # Sentinel values for _make_agg_sort_key flattening
 _TUPLE_START = -1
@@ -50,6 +60,22 @@ _TUPLE_END = -2
 # ============================================================================
 # Label conversion utilities
 # ============================================================================
+
+def _build_vtx_triangulated_neighbors(g: nx.Graph) -> Dict:
+    """Build triangulated-neighbor dict for graph *g* (shared helper)."""
+    vtx_tri: Dict = {}
+    for v in g.nodes():
+        neighs = list(g.neighbors(v))
+        tri_neighs: List = []
+        if neighs:
+            v_isg = nx.induced_subgraph(g, neighs)
+            for ttn in nx.connected_components(v_isg):
+                ttn_v = list(ttn) + [v]
+                tri_subgraph = nx.induced_subgraph(g, ttn_v)
+                tri_neighs.append(tri_subgraph)
+        vtx_tri[v] = tri_neighs
+    return vtx_tri
+
 
 def _labels_to_dict(G: nx.Graph, vlabel: Any) -> Dict[Hashable, int]:
     """
@@ -101,45 +127,6 @@ def _make_agg_sort_key(x: Any) -> Tuple:
 # ============================================================================
 # Neighbor component precomputation (topology, not label-dependent)
 # ============================================================================
-
-def _precompute_neighbor_components(G: nx.Graph) -> Dict[Hashable, Tuple]:
-    """Precompute, for each node v, the tuple of connected components of N(v).
-
-    The induced-subgraph components of N(v) depend only on graph topology,
-    not on node labels, so this is computed once per graph and reused across
-    all WL iterations.
-
-    Returns a dict: v -> tuple of component-tuples.
-    Each component-tuple contains neighbor nodes in deterministic order.
-    """
-    adj = {n: list(G.neighbors(n)) for n in G.nodes()}
-    result: Dict[Hashable, Tuple] = {}
-    for v, neighbors in adj.items():
-        if not neighbors:
-            result[v] = ()
-            continue
-        nbr_set = frozenset(neighbors)
-        seen: set = set()
-        components: List[Tuple] = []
-        for u in neighbors:
-            if u in seen:
-                continue
-            comp = [u]
-            seen.add(u)
-            stack = [u]
-            while stack:
-                x = stack.pop()
-                for y in adj[x]:
-                    if y in nbr_set and y not in seen:
-                        seen.add(y)
-                        comp.append(y)
-                        stack.append(y)
-            # Sort component nodes deterministically
-            comp.sort(key=node_sort_key)
-            components.append(tuple(comp))
-        result[v] = tuple(components)
-    return result
-
 
 # ============================================================================
 # Step-2 Forward: label tuple computation for CSG nodes
@@ -781,21 +768,6 @@ def hierarchical_triangular_wl(
             node_wl_test_triangulated_neighbors
         )
 
-        def _build_vtx_triangulated_neighbors(g: nx.Graph) -> Dict:
-            """Build triangulated-neighbor dict for graph *g*."""
-            vtx_tri: Dict = {}
-            for v in g.nodes():
-                neighs = list(g.neighbors(v))
-                tri_neighs: List = []
-                if neighs:
-                    v_isg = nx.induced_subgraph(g, neighs)
-                    for ttn in nx.connected_components(v_isg):
-                        ttn_v = list(ttn) + [v]
-                        tri_subgraph = nx.induced_subgraph(g, ttn_v)
-                        tri_neighs.append(tri_subgraph)
-                vtx_tri[v] = tri_neighs
-            return vtx_tri
-
         # Remap non-consecutive node IDs to 0..n-1 (required by
         # node_wl_test_triangulated_neighbors which indexes arrays
         # directly by node ID).
@@ -828,51 +800,13 @@ def hierarchical_triangular_wl(
     # ---------------------------------------------------------------
     # L >= 1: Build multi-layer CSG hierarchy (Step-3)
     # ---------------------------------------------------------------
-    layers1: List[Tuple[nx.Graph, List, Dict]] = []
-    layers2: List[Tuple[nx.Graph, List, Dict]] = []
-
-    current_G1: nx.Graph = G1
-    current_G2: nx.Graph = G2
-
-    for k in range(L):
-        H1, cb1, info1 = cyclic_schematic_graph(current_G1, cb_prefix=f"cb{k}")
-        H2, cb2, info2 = cyclic_schematic_graph(current_G2, cb_prefix=f"cb{k}")
-        layers1.append((H1, cb1, info1))
-        layers2.append((H2, cb2, info2))
-        current_G1 = H1
-        current_G2 = H2
-
-    # Build inter-layer mappings: for each adjacent pair (lower, higher)
-    # we build lower->higher mapping.
-    mappings1: List[Dict[Hashable, Any]] = []
-    mappings2: List[Dict[Hashable, Any]] = []
-
-    current_lower1: nx.Graph = G1
-    current_lower2: nx.Graph = G2
-
-    for k in range(L):
-        H1_k, cb1_k, _ = layers1[k]
-        mappings1.append(build_input_to_csg_mapping(H1_k, cb1_k, current_lower1))
-
-        H2_k, cb2_k, _ = layers2[k]
-        mappings2.append(build_input_to_csg_mapping(H2_k, cb2_k, current_lower2))
-
-        current_lower1 = H1_k
-        current_lower2 = H2_k
-
-    # Precompute neighbor components for every graph in the hierarchy.
-    # These depend only on graph structure, not on labels, so they are
-    # computed once and reused across all I iterations.
-    nc_input1 = _precompute_neighbor_components(G1)
-    nc_input2 = _precompute_neighbor_components(G2)
-    nc_csg: List[Tuple[Dict[Hashable, Tuple], Dict[Hashable, Tuple]]] = []
-    for k in range(L):
-        H1_k, _, _ = layers1[k]
-        H2_k, _, _ = layers2[k]
-        nc_csg.append((
-            _precompute_neighbor_components(H1_k),
-            _precompute_neighbor_components(H2_k),
-        ))
+    paired_csg = build_multilayer_csg_pair(G1, G2, L)
+    (
+        layers1, layers2,
+        mappings1, mappings2,
+        nc_input1, nc_input2,
+        nc_csg,
+    ) = extract_htn_wl_args(paired_csg)
 
     # ---------------------------------------------------------------
     # Main iteration loop
@@ -1091,20 +1025,6 @@ def hierarchical_triangular_wl_with_edges(
             edge_wl_test_triangulated_neighbors
         )
 
-        def _build_vtx_triangulated_neighbors(g: nx.Graph) -> Dict:
-            vtx_tri: Dict = {}
-            for v in g.nodes():
-                neighs = list(g.neighbors(v))
-                tri_neighs: List = []
-                if neighs:
-                    v_isg = nx.induced_subgraph(g, neighs)
-                    for ttn in nx.connected_components(v_isg):
-                        ttn_v = list(ttn) + [v]
-                        tri_subgraph = nx.induced_subgraph(g, ttn_v)
-                        tri_neighs.append(tri_subgraph)
-                vtx_tri[v] = tri_neighs
-            return vtx_tri
-
         # Remap non-consecutive node IDs to 0..n-1
         if n1 > 0 and node_list1 != list(range(n1)):
             G1_tri = nx.relabel_nodes(G1, {v: i for i, v in enumerate(node_list1)})
@@ -1155,46 +1075,13 @@ def hierarchical_triangular_wl_with_edges(
     # ---------------------------------------------------------------
     # L >= 1: Build CSG hierarchy
     # ---------------------------------------------------------------
-    layers1: List[Tuple[nx.Graph, List, Dict]] = []
-    layers2: List[Tuple[nx.Graph, List, Dict]] = []
-
-    current_G1 = G1
-    current_G2 = G2
-
-    for k in range(L):
-        H1, cb1, info1 = cyclic_schematic_graph(current_G1, cb_prefix=f"cb{k}")
-        H2, cb2, info2 = cyclic_schematic_graph(current_G2, cb_prefix=f"cb{k}")
-        layers1.append((H1, cb1, info1))
-        layers2.append((H2, cb2, info2))
-        current_G1 = H1
-        current_G2 = H2
-
-    # Build inter-layer mappings
-    mappings1: List[Dict[Hashable, Any]] = []
-    mappings2: List[Dict[Hashable, Any]] = []
-
-    current_lower1 = G1
-    current_lower2 = G2
-
-    for k in range(L):
-        H1_k, cb1_k, _ = layers1[k]
-        mappings1.append(build_input_to_csg_mapping(H1_k, cb1_k, current_lower1))
-        H2_k, cb2_k, _ = layers2[k]
-        mappings2.append(build_input_to_csg_mapping(H2_k, cb2_k, current_lower2))
-        current_lower1 = H1_k
-        current_lower2 = H2_k
-
-    # Precompute neighbour components (topology-dependent only)
-    nc_input1 = _precompute_neighbor_components(G1)
-    nc_input2 = _precompute_neighbor_components(G2)
-    nc_csg: List[Tuple[Dict[Hashable, Tuple], Dict[Hashable, Tuple]]] = []
-    for k in range(L):
-        H1_k, _, _ = layers1[k]
-        H2_k, _, _ = layers2[k]
-        nc_csg.append((
-            _precompute_neighbor_components(H1_k),
-            _precompute_neighbor_components(H2_k),
-        ))
+    paired_csg = build_multilayer_csg_pair(G1, G2, L)
+    (
+        layers1, layers2,
+        mappings1, mappings2,
+        nc_input1, nc_input2,
+        nc_csg,
+    ) = extract_htn_wl_args(paired_csg)
 
     # ---------------------------------------------------------------
     # Pre-processing: compute initial edge contexts for G nodes

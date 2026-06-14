@@ -6,10 +6,14 @@ Exports:
     cyclic_schematic_graph, build_multilayer_csg, build_multilayer_csg_with_mappings,
     build_csg_to_input_mapping, build_input_to_csg_mapping, ...
 
+  Multi-layer CSG construction (multilayer_csg):
+    build_multilayer_csg_single, build_multilayer_csg_pair,
+    SingleGraphCSG, PairedGraphCSG, ...
+
   Canonical minimum cycle basis (canonical_mcb):
     canonical_mcb, compute_canonical_vertex_ids, canonical_mcb_invariant_summary
 
-  Step-2/Step-3 hierarchical WL (hierarchical_triangulated_wl):
+  Step-2/Step-3 hierarchical WL (hierarchical_triangular_wl):
     hierarchical_triangular_wl, hierarchical_triangular_wl_with_edges,
     hierarchical_triangular_wl_unified, ...
 """
@@ -36,13 +40,25 @@ from .cyclic_schema import (
     get_edge_in_cycle,
 )
 
+from .multilayer_csg import (
+    SingleGraphCSG,
+    PairedGraphCSG,
+    build_multilayer_csg_single,
+    build_multilayer_csg_pair,
+    get_layer_graph,
+    get_cycle_basis,
+    get_mapping,
+    get_neighbor_components,
+    extract_htn_wl_args,
+)
+
 from .canonical_mcb import (
     canonical_mcb,
     compute_canonical_vertex_ids,
     canonical_mcb_invariant_summary,
 )
 
-from .hierarchical_triangulated_wl import (
+from .htn_wl import (
     hierarchical_triangular_wl,
     hierarchical_triangular_wl_with_edges,
     hierarchical_triangular_wl_unified,
@@ -54,3 +70,5 @@ from .hierarchical_triangulated_wl import (
     compute_initial_label_tuples,
     compute_final_label_tuples,
 )
+
+# (htn_wl is the canonical module; hierarchical_triangular_wl.py was merged)

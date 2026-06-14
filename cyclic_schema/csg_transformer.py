@@ -301,27 +301,25 @@ class TNAAttention(nn.Module):
         self.head_dim = hidden_dim // num_heads
         assert hidden_dim % num_heads == 0, "hidden_dim must be divisible by num_heads"
         
-        # Projections for query, key, value
         self.W_Q = nn.Linear(hidden_dim, hidden_dim)
         self.W_K = nn.Linear(hidden_dim, hidden_dim)
         self.W_V = nn.Linear(hidden_dim, hidden_dim)
         
-        # Edge feature integration (optional)
         self.edge_feat_dim = edge_feat_dim
         if edge_feat_dim is not None:
             self.edge_proj = nn.Linear(edge_feat_dim, hidden_dim // 4)
-            # Adjust K/V projections to account for concatenated edge features
             self.comp_feat_dim = hidden_dim + hidden_dim // 4
             self.W_K_comp = nn.Linear(self.comp_feat_dim, hidden_dim)
             self.W_V_comp = nn.Linear(self.comp_feat_dim, hidden_dim)
         else:
             self.edge_proj = None
         
-        # LayerNorm and Dropout
+        self.comp_size_encoding = nn.Embedding(32, hidden_dim)
+        nn.init.normal_(self.comp_size_encoding.weight, std=0.02)
+        
         self.norm = nn.LayerNorm(hidden_dim)
         self.dropout = nn.Dropout(dropout)
         
-        # FFN
         self.ffn = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim * 4),
             nn.GELU(),
@@ -428,48 +426,43 @@ class TNAAttention(nn.Module):
                 attn_output[v] = x[v]
                 continue
             
-            # Stack component representations
-            comp_stack = torch.stack(comp_representations)  # [num_comp, repr_dim]
+            comp_stack = torch.stack(comp_representations)
             
-            # Project component representations through K/V
+            comp_sizes = torch.tensor(
+                [len(c) for c in components if len(c) > 0],
+                device=device, dtype=torch.long
+            )
+            comp_sizes_clamped = comp_sizes.clamp(max=31)
+            comp_size_emb = self.comp_size_encoding(comp_sizes_clamped)
+            comp_stack = comp_stack + comp_size_emb
+            
             if self.edge_proj is not None:
-                # Use component-specific projections
-                comp_k = self.W_K_comp(comp_stack)  # [num_comp, hidden_dim]
+                comp_k = self.W_K_comp(comp_stack)
                 comp_v = self.W_V_comp(comp_stack)
             else:
                 comp_k = self.W_K(comp_stack)
                 comp_v = self.W_V(comp_stack)
             
-            # Reshape for multi-head
-            comp_k = comp_k.view(-1, self.num_heads, self.head_dim)  # [num_comp, num_heads, head_dim]
+            comp_k = comp_k.view(-1, self.num_heads, self.head_dim)
             comp_v = comp_v.view(-1, self.num_heads, self.head_dim)
             
-            # Compute scaled dot-product attention scores
-            # score_R = (W_Q h_v)^T (W_K m_R) / sqrt(d_k)
-            q_v = Q_full[v].unsqueeze(0)  # [1, num_heads, head_dim]
+            q_v = Q_full[v].unsqueeze(0)
             
-            # [1, num_heads, head_dim] x [num_comp, num_heads, head_dim]^T
-            # -> [num_heads, 1, head_dim] x [num_heads, head_dim, num_comp]
-            scores = torch.matmul(q_v.permute(1, 0, 2), comp_k.permute(1, 2, 0))  # [num_heads, 1, num_comp]
-            scores = scores.squeeze(1)  # [num_heads, num_comp]
+            scores = torch.matmul(q_v.permute(1, 0, 2), comp_k.permute(1, 2, 0))
+            scores = scores.squeeze(1)
             scores = scores / math.sqrt(self.head_dim)
             scores = F.leaky_relu(scores, negative_slope=0.2)
             
-            # Softmax over components (dim=1 = num_comp)
-            attn_weights = F.softmax(scores, dim=1)  # [num_heads, num_comp]
+            attn_weights = F.softmax(scores, dim=1)
             attn_weights = self.dropout(attn_weights)
             
-            # Weighted sum of component values
-            # [num_heads, num_comp] x [num_comp, num_heads, head_dim] -> [num_heads, head_dim]
             attn_out = torch.einsum('hc,chd->hd', attn_weights, comp_v)
-            attn_out = attn_out.contiguous().view(-1)  # [hidden_dim]
+            attn_out = attn_out.contiguous().view(-1)
             
             attn_output[v] = attn_out
         
-        # Residual connection and LayerNorm
         attn_output = self.norm(x + self.dropout(attn_output))
         
-        # FFN
         ffn_out = self.ffn(attn_output)
         output = self.ffn_norm(attn_output + ffn_out)
         
@@ -1360,12 +1353,34 @@ class CSGTransformer(nn.Module):
         
         # Pooling for graph-level tasks
         if self.task == 'graph_classification':
-            graph_embedding = node_embeddings.mean(dim=0)
+            graph_embedding = self._pool_node_embeddings(node_embeddings)
             logits = self.classifier(graph_embedding)
             return graph_embedding, logits
         else:
             logits = self.classifier(node_embeddings)
             return node_embeddings, logits
+    
+    def _pool_node_embeddings(self, node_embeddings: torch.Tensor) -> torch.Tensor:
+        """
+        Pool node embeddings to graph embedding using mean + max pooling.
+        
+        Concatenates mean and max pooled features for richer representation.
+        This captures both average graph structure and salient features.
+        """
+        mean_pool = node_embeddings.mean(dim=0)
+        max_pool = node_embeddings.max(dim=0).values
+        return torch.cat([mean_pool, max_pool], dim=-1)[:, :self.hidden_dim]
+    
+    def get_graph_embedding(self, G: nx.Graph, node_features: torch.Tensor) -> torch.Tensor:
+        """
+        Get graph embedding without classification head.
+        
+        Useful for similarity computation and visualization.
+        """
+        self.eval()
+        with torch.no_grad():
+            emb, _ = self.forward(G, node_features)
+        return emb
 
 
 # ============================================================================

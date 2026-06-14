@@ -5,10 +5,10 @@ model:
   hidden_dim: 128
   num_layers: 3
   num_heads: 4
-  dropout: 0.1
-  L: 3  # CSG layers
-  T: 3  # TNA rounds per layer
-  I: 5  # Global iterations
+  dropout: 0.2
+  L: 3
+  T: 3
+  I: 5
   task: graph_classification
 
 # Training parameters
@@ -19,7 +19,7 @@ training:
   patience: 30
   min_delta: 0.0001
   batch_size: 64
-  lambda_reg: 0.0001  # L2 regularization coefficient
+  lambda_reg: 0.0001
 
 # Dataset parameters
 dataset:
@@ -36,9 +36,9 @@ evaluation:
     - f1_macro
     - precision_macro
     - recall_macro
-  num_runs: 10  # Number of runs for cross-validation
+  num_runs: 10
 
 # Hardware parameters
 hardware:
-  device: auto  # auto, cuda, cpu
+  device: auto
   num_workers: 4

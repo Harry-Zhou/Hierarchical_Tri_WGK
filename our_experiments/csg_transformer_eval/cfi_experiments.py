@@ -27,6 +27,7 @@ import networkx as nx
 import numpy as np
 import pandas as pd
 import torch
+import torch.nn.functional as F
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
 
@@ -190,11 +191,129 @@ def build_cfi_pair(
 # ============================================================================
 
 def _cfi_features(G: nx.Graph, device: torch.device) -> torch.Tensor:
-    """Compute degree-based features for CFI graphs."""
+    """
+    Compute enhanced features for CFI graphs.
+    
+    Features include:
+    1. Degree features (original and normalized)
+    2. Clustering coefficient
+    3. Node type encoding (vertex vs edge node)
+    4. Degree squared (non-linear)
+    5. Neighbor type ratio (vertex vs edge neighbors)
+    6. Betweenness centrality (approximate via BFS)
+    7. Cycle membership count (how many short cycles the node belongs to)
+    8. Edge node sub-type (x-node vs y-node in CFI gadget)
+    """
+    n = G.number_of_nodes()
+    features = []
+    
+    # --- Feature 1-2: Degree features ---
     deg = torch.tensor([G.degree(v) for v in G.nodes()], dtype=torch.float32, device=device)
     max_deg = deg.max().item() if deg.numel() > 0 and deg.max().item() > 0 else 1.0
     norm_deg = deg / max_deg
-    return torch.stack([deg, norm_deg], dim=1)
+    features.extend([deg, norm_deg])
+    
+    # --- Feature 3: Clustering coefficient ---
+    cc = torch.zeros(n, device=device)
+    for i, v in enumerate(G.nodes()):
+        neighbors = list(G.neighbors(v))
+        k = len(neighbors)
+        if k >= 2:
+            triangles = sum(1 for u in neighbors for w in neighbors
+                           if u != w and G.has_edge(u, w))
+            cc[i] = triangles / (k * (k - 1))
+    features.append(cc)
+    
+    # --- Feature 4: Node type encoding ---
+    # vertex node = 1, edge node = 0
+    node_type = torch.zeros(n, device=device)
+    for i, v in enumerate(G.nodes()):
+        if isinstance(v, str) and v.startswith('v'):
+            node_type[i] = 1.0
+    features.append(node_type)
+    
+    # --- Feature 5: Degree squared (non-linear) ---
+    deg_sq = deg ** 2 / (max_deg ** 2)
+    features.append(deg_sq)
+    
+    # --- Feature 6: Neighbor type ratio ---
+    # Fraction of neighbors that are vertex nodes (vs edge nodes)
+    nbr_vertex_ratio = torch.zeros(n, device=device)
+    for i, v in enumerate(G.nodes()):
+        neighbors = list(G.neighbors(v))
+        if neighbors:
+            v_count = sum(1 for nb in neighbors
+                          if isinstance(nb, str) and nb.startswith('v'))
+            nbr_vertex_ratio[i] = v_count / len(neighbors)
+    features.append(nbr_vertex_ratio)
+    
+    # --- Feature 7: Approximate betweenness centrality (local) ---
+    # Use 2-hop BFS approximation for efficiency
+    local_bc = torch.zeros(n, device=device)
+    node_list = list(G.nodes())
+    node_idx = {v: i for i, v in enumerate(node_list)}
+    for v in node_list:
+        # BFS to depth 2
+        visited = {v: 0}
+        queue = [v]
+        short_paths_through = {}
+        while queue:
+            curr = queue.pop(0)
+            depth = visited[curr]
+            if depth >= 2:
+                continue
+            for nb in G.neighbors(curr):
+                if nb not in visited:
+                    visited[nb] = depth + 1
+                    queue.append(nb)
+                if nb != v and nb != curr:
+                    key = tuple(sorted([node_idx[curr], node_idx[nb]]))
+                    short_paths_through[key] = short_paths_through.get(key, 0) + 1
+        # Count paths through v (excluding start=end=v)
+        bc_val = sum(1 for (a, b), cnt in short_paths_through.items()
+                     if a == node_idx[v] or b == node_idx[v])
+        local_bc[node_idx[v]] = bc_val
+    max_bc = local_bc.max().item() if local_bc.max().item() > 0 else 1.0
+    features.append(local_bc / max_bc)
+    
+    # --- Feature 8: Cycle membership (triangles in 2-hop neighborhood) ---
+    cycle_member = torch.zeros(n, device=device)
+    for i, v in enumerate(G.nodes()):
+        nbrs = set(G.neighbors(v))
+        tri_count = 0
+        for u in nbrs:
+            for w in nbrs:
+                if u != w and G.has_edge(u, w):
+                    tri_count += 1
+        cycle_member[i] = tri_count // 2  # Each triangle counted twice
+    max_cm = cycle_member.max().item() if cycle_member.max().item() > 0 else 1.0
+    features.append(cycle_member / max_cm)
+    
+    # --- Feature 9: Edge-node sub-type (x vs y) ---
+    # x-nodes: even parity gadget; y-nodes: odd parity gadget
+    edge_sub_type = torch.zeros(n, device=device)
+    for i, v in enumerate(G.nodes()):
+        if isinstance(v, str) and v.startswith('e'):
+            if '_x' in v:
+                edge_sub_type[i] = 1.0  # x-node
+            elif '_y' in v:
+                edge_sub_type[i] = -1.0  # y-node
+    features.append(edge_sub_type)
+    
+    # --- Feature 10: Degree centrality within own type ---
+    type_deg = torch.zeros(n, device=device)
+    for i, v in enumerate(G.nodes()):
+        is_vertex = isinstance(v, str) and v.startswith('v')
+        same_type_count = 0
+        for nb in G.neighbors(v):
+            nb_is_vertex = isinstance(nb, str) and nb.startswith('v')
+            if is_vertex == nb_is_vertex:
+                same_type_count += 1
+        type_deg[i] = same_type_count
+    max_td = type_deg.max().item() if type_deg.max().item() > 0 else 1.0
+    features.append(type_deg / max_td)
+    
+    return torch.stack(features, dim=1)
 
 
 def train_cfi_distinguisher(
@@ -207,6 +326,16 @@ def train_cfi_distinguisher(
     """
     Train model to distinguish CFI graph pairs.
     
+    Uses a combination of:
+    1. Pairwise ranking loss: score(G1) < score(G2) when G1 is original, G2 is twisted
+    2. Cross-entropy loss for classification
+    3. Cosine similarity loss for embedding separation
+    
+    Also includes:
+    - Cosine annealing LR schedule with warmup
+    - Early stopping based on training loss convergence
+    - Gradient clipping for stability
+    
     Args:
         model: CSG-Transformer model
         cfi_pairs: List of (G1, G2) CFI graph pairs
@@ -217,17 +346,32 @@ def train_cfi_distinguisher(
     Returns:
         Trained model
     """
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=config.get('lr', 1e-3),
-        weight_decay=config.get('weight_decay', 1e-4),
+    lr = config.get('lr', 1e-3)
+    weight_decay = config.get('weight_decay', 1e-4)
+    num_epochs = config.get('epochs', 200)
+    warmup_epochs = min(10, num_epochs // 10)
+    
+    optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=weight_decay)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(
+        optimizer, T_max=num_epochs - warmup_epochs, eta_min=lr * 0.01
     )
     
-    num_epochs = config.get('epochs', 100)
+    best_loss = float('inf')
+    patience = max(20, num_epochs // 5)
+    patience_counter = 0
+    
+    margin = 0.5
     
     for epoch in range(num_epochs):
         model.train()
         total_loss = 0.0
+        
+        if epoch < warmup_epochs:
+            warmup_factor = (epoch + 1) / warmup_epochs
+            for param_group in optimizer.param_groups:
+                param_group['lr'] = lr * warmup_factor
+        else:
+            scheduler.step()
         
         for G1, G2 in cfi_pairs:
             features1 = _cfi_features(G1, device)
@@ -244,16 +388,41 @@ def train_cfi_distinguisher(
             logits = torch.cat([logits1, logits2], dim=0)
             labels = torch.tensor([0, 1], device=device)
             
-            loss = torch.nn.functional.cross_entropy(logits, labels)
+            ce_loss = torch.nn.functional.cross_entropy(logits, labels)
+            
+            score1 = logits1[0, 1] - logits1[0, 0]
+            score2 = logits2[0, 1] - logits2[0, 0]
+            ranking_loss = torch.relu(margin - (score2 - score1))
+            
+            sim = F.cosine_similarity(emb1.unsqueeze(0), emb2.unsqueeze(0))
+            sep_loss = torch.relu(sim + 0.1)
+            
+            loss = ce_loss + 0.5 * ranking_loss + 0.3 * sep_loss
             
             optimizer.zero_grad()
             loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
             optimizer.step()
             
             total_loss += loss.item()
         
-        if verbose and (epoch + 1) % 10 == 0:
-            print(f"Epoch {epoch+1}/{num_epochs}: Loss={total_loss/len(cfi_pairs):.4f}")
+        avg_loss = total_loss / len(cfi_pairs)
+        
+        if avg_loss < best_loss:
+            best_loss = avg_loss
+            patience_counter = 0
+        else:
+            patience_counter += 1
+        
+        if verbose and (epoch + 1) % 20 == 0:
+            current_lr = optimizer.param_groups[0]['lr']
+            print(f"Epoch {epoch+1}/{num_epochs}: Loss={avg_loss:.4f}, "
+                  f"LR={current_lr:.6f}")
+        
+        if patience_counter >= patience:
+            if verbose:
+                print(f"Early stopping at epoch {epoch+1} (patience={patience})")
+            break
     
     return model
 
@@ -266,31 +435,26 @@ def evaluate_cfi_distinguishing(
     """
     Evaluate model's ability to distinguish CFI graphs.
     
-    Returns accuracy, where a correct prediction means the model assigns
-    different labels to the two graphs in a pair. Also tracks label
-    consistency across pairs (model should always assign 0 to original and
-    1 to twisted, not just different labels).
-    
-    Args:
-        model: Trained model
-        cfi_pairs: List of (G1, G2) CFI graph pairs
-        device: Device
-        
-    Returns:
-        Dict with accuracy, consistency, and detailed metrics
+    Reports:
+    - Accuracy: fraction of pairs where model assigns different labels
+    - Consistency: fraction of pairs with consistent label assignment
+    - Mean embedding distance between pairs
+    - Mean score difference between pairs
     """
     model.eval()
     correct = 0
     total = len(cfi_pairs)
     label_assignments = []
+    embedding_distances = []
+    score_diffs = []
     
     with torch.no_grad():
         for G1, G2 in cfi_pairs:
             features1 = _cfi_features(G1, device)
             features2 = _cfi_features(G2, device)
             
-            _, logits1 = model(G1, features1)
-            _, logits2 = model(G2, features2)
+            emb1, logits1 = model(G1, features1)
+            emb2, logits2 = model(G2, features2)
             
             pred1 = logits1.argmax().item()
             pred2 = logits2.argmax().item()
@@ -298,14 +462,25 @@ def evaluate_cfi_distinguishing(
             
             if pred1 != pred2:
                 correct += 1
+            
+            dist = torch.norm(emb1 - emb2, p=2).item()
+            embedding_distances.append(dist)
+            
+            s1 = logits1[0, 1].item() - logits1[0, 0].item()
+            s2 = logits2[0, 1].item() - logits2[0, 0].item()
+            score_diffs.append(s2 - s1)
     
     accuracy = correct / total if total > 0 else 0.0
     
-    # Consistency: model should assign G1→0, G2→1 (or opposite) consistently
     assignments = np.array(label_assignments)
     consistent_pattern = np.sum((assignments[:, 0] == 0) & (assignments[:, 1] == 1))
     opposite_pattern = np.sum((assignments[:, 0] == 1) & (assignments[:, 1] == 0))
     consistency = max(consistent_pattern, opposite_pattern) / total if total > 0 else 0.0
+    
+    mean_dist = np.mean(embedding_distances) if embedding_distances else 0.0
+    std_dist = np.std(embedding_distances) if embedding_distances else 0.0
+    mean_score_diff = np.mean(score_diffs) if score_diffs else 0.0
+    std_score_diff = np.std(score_diffs) if score_diffs else 0.0
     
     return {
         'accuracy': accuracy,
@@ -314,6 +489,10 @@ def evaluate_cfi_distinguishing(
         'total': total,
         'consistent_pattern': int(consistent_pattern),
         'opposite_pattern': int(opposite_pattern),
+        'mean_embedding_distance': mean_dist,
+        'std_embedding_distance': std_dist,
+        'mean_score_diff': mean_score_diff,
+        'std_score_diff': std_score_diff,
     }
 
 
@@ -354,8 +533,8 @@ def run_cfi_experiment(
             'I': 5,
             'lr': 1e-3,
             'weight_decay': 1e-4,
-            'epochs': 100,
-            'in_dim': 2,
+            'epochs': 200,
+            'in_dim': 10,
         }
     
     if device is None:
@@ -434,8 +613,8 @@ def run_cfi_layer_ablation(
             'I': 5,
             'lr': 1e-3,
             'weight_decay': 1e-4,
-            'epochs': 100,
-            'in_dim': 2,
+            'epochs': 200,
+            'in_dim': 10,
         }
     
     if device is None:
@@ -525,8 +704,8 @@ def run_cfi_ablation_study(
             'I': 5,
             'lr': 1e-3,
             'weight_decay': 1e-4,
-            'epochs': 100,
-            'in_dim': 2,
+            'epochs': 200,
+            'in_dim': 10,
         }
     
     if device is None:
@@ -666,7 +845,7 @@ def main():
                         help='TNA rounds')
     parser.add_argument('--I', type=int, default=5,
                         help='Global iterations')
-    parser.add_argument('--epochs', type=int, default=100,
+    parser.add_argument('--epochs', type=int, default=200,
                         help='Training epochs')
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--save_dir', type=str, default='')
@@ -683,7 +862,7 @@ def main():
         'epochs': args.epochs,
         'lr': 1e-3,
         'weight_decay': 1e-4,
-        'in_dim': 2,
+        'in_dim': 10,
     }
     
     device = get_device()

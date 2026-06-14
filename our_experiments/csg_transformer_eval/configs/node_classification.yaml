@@ -6,9 +6,9 @@ model:
   num_layers: 3
   num_heads: 4
   dropout: 0.1
-  L: 2  # CSG layers (fewer for node classification)
-  T: 2  # TNA rounds per layer
-  I: 3  # Global iterations
+  L: 2
+  T: 2
+  I: 3
   task: node_classification
 
 # Training parameters
@@ -18,8 +18,8 @@ training:
   epochs: 200
   patience: 50
   min_delta: 0.001
-  batch_size: 1  # Full batch for node classification
-  lambda_reg: 0.0005  # L2 regularization coefficient
+  batch_size: 1
+  lambda_reg: 0.0005
 
 # Dataset parameters
 dataset:
@@ -34,9 +34,9 @@ evaluation:
     - f1_macro
     - precision_macro
     - recall_macro
-  mask: test_mask  # Which mask to use for evaluation
+  mask: test_mask
 
 # Hardware parameters
 hardware:
-  device: auto  # auto, cuda, cpu
+  device: auto
   num_workers: 4
